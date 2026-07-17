@@ -1,155 +1,152 @@
 <style>
-/* ── pixel clock – marketing aesthetic ── */
-:root{--bg:#f7f7f7;--surface:#fff;--surface2:#f0f0f0;--surface3:#e8e8e8;--text:#1a1a1a;--muted:#888;--border:rgba(0,0,0,.08);--accent:#1a1a1a;--accent2:#555;--shadow:0 1px 3px rgba(0,0,0,.05);--r:0px;--r-lg:0px}
-.card{border-color:#e8e8e8;box-shadow:none;margin-bottom:1px;border-radius:0}
-.section-title{font-size:.68rem;letter-spacing:2.5px;color:#bbb;border-bottom:1px solid #eee;font-weight:400}
-.seg{background:#efefef;border-color:#e0e0e0;border-radius:0}
-.seg button{border-radius:0;font-weight:400}
-.seg button.on{background:#1a1a1a;color:#fff;box-shadow:none}
-.sw input:checked+.sl{background:#1a1a1a;border-color:#1a1a1a}
-.color-swatch{border-color:#ddd}
-.btn{background:#1a1a1a;color:#fff;border-radius:0;box-shadow:none;font-size:.72rem;letter-spacing:2px;text-transform:uppercase;font-weight:400}
-.btn:hover{background:#333;opacity:1;transform:none;box-shadow:none}
-input[type="color"]{border-color:#e0e0e0;border-radius:0}
-input[type="text"]{border-color:#e0e0e0;border-radius:0}
-input[type="text"]:focus{border-color:#1a1a1a;box-shadow:none}
-.clock-preview{height:44px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;letter-spacing:3px;border:1px solid #ccc;background:#000;color:#fff;transition:background .2s,color .2s;margin-top:4px}
+#clock-app{--ink:#191918;--muted:#74736e;--line:#deddd7;--paper:#f4f3ee;--panel:#fff;--accent:#ed5a36;color:var(--ink);font-family:"Segoe UI",Tahoma,sans-serif;max-width:680px;margin:0 auto;padding:8px 0 28px}
+#clock-app *{box-sizing:border-box}
+.clock-head{display:flex;align-items:flex-end;justify-content:space-between;padding:20px 4px 15px;border-bottom:1px solid var(--line)}
+.clock-head h1{font-family:Georgia,serif;font-size:1.7rem;font-weight:400;letter-spacing:0;margin:0}
+.clock-state{font-size:.72rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.clock-preview{position:relative;height:152px;margin:18px 0 20px;overflow:hidden;background:#000;color:#fff;border:1px solid #292929;box-shadow:0 14px 34px rgba(20,20,18,.13);display:grid;place-items:center;transition:background-color .2s,color .2s}
+.preview-grid{position:absolute;inset:0;opacity:.08;background-image:linear-gradient(rgba(255,255,255,.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.8) 1px,transparent 1px);background-size:8px 8px;pointer-events:none}
+.preview-digital{text-align:center;z-index:1}.preview-time{font-family:"Courier New",monospace;font-size:2.5rem;font-weight:700;line-height:1;letter-spacing:0;text-shadow:2px 2px 0 #333;transition:font-size .2s}
+.preview-rule{display:none;width:34%;height:2px;margin:13px auto 8px;background:var(--accent)}
+.preview-meta{font-family:"Courier New",monospace;font-size:.68rem;letter-spacing:.08em;opacity:.62;text-transform:uppercase}
+.preview-analog{display:none;position:relative;width:118px;height:118px;border:2px solid #333;border-radius:50%;z-index:1}.preview-analog.rect{width:82%;height:112px;border-radius:0}
+.preview-hand{position:absolute;left:50%;bottom:50%;width:2px;transform-origin:50% 100%;background:currentColor}.preview-hour{height:29%;transform:translateX(-50%) rotate(305deg)}.preview-minute{height:40%;transform:translateX(-50%) rotate(55deg);opacity:.82}.preview-second{height:44%;width:1px;transform:translateX(-50%) rotate(180deg);background:#ef5a35}
+.preview-pin{position:absolute;width:7px;height:7px;left:50%;top:50%;transform:translate(-50%,-50%);background:currentColor;border-radius:50%}.preview-tick{position:absolute;width:3px;height:3px;background:currentColor;border-radius:50%}.preview-tick:nth-of-type(1){left:50%;top:3px}.preview-tick:nth-of-type(2){right:3px;top:50%}.preview-tick:nth-of-type(3){left:50%;bottom:3px}.preview-tick:nth-of-type(4){left:3px;top:50%}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.clock-panel{background:var(--panel);border:1px solid var(--line);padding:16px;min-width:0}.clock-panel.wide{grid-column:1/-1}
+.panel-title{margin:0 0 13px;font-family:Georgia,serif;font-size:1rem;font-weight:400;letter-spacing:0}.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid var(--line);background:var(--paper);padding:3px;gap:3px}.seg button{min-width:0;padding:9px 5px;border:0;background:transparent;color:var(--muted);font:600 .72rem "Segoe UI",Tahoma,sans-serif;cursor:pointer}.seg button.on{background:var(--ink);color:#fff}
+.setting-row{min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #efeee9;font-size:.84rem}.setting-row:first-of-type{border-top:0}.setting-copy{min-width:0}.setting-copy small{display:block;color:var(--muted);font-size:.68rem;margin-top:2px}
+.sw{position:relative;width:36px;height:20px;flex:0 0 36px}.sw input{position:absolute;opacity:0}.sl{position:absolute;inset:0;background:#cfcec8;border-radius:20px;cursor:pointer;transition:.15s}.sl:after{content:"";position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.22)}.sw input:checked+.sl{background:var(--accent)}.sw input:checked+.sl:after{transform:translateX(16px)}
+.color-input{display:flex;align-items:center;gap:8px;color:var(--muted);font:600 .68rem "Courier New",monospace;text-transform:uppercase}.color-input input{width:31px;height:31px;padding:2px;border:1px solid var(--line);background:#fff;cursor:pointer}
+.weather-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding-top:10px}.weather-row input{width:100%;padding:10px 11px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;outline:0}.weather-row input:focus{border-color:var(--ink)}
+.small-btn,.save-btn{border:0;background:var(--ink);color:#fff;font:600 .72rem "Segoe UI",Tahoma,sans-serif;cursor:pointer;padding:0 15px}.save-bar{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;padding:11px 12px;background:rgba(244,243,238,.96);border:1px solid var(--line);backdrop-filter:blur(8px)}.save-note{font-size:.72rem;color:var(--muted)}.save-btn{padding:11px 19px;background:var(--accent)}.mode-only{display:none}
+@media(max-width:560px){#clock-app{padding-left:8px;padding-right:8px}.settings-grid{grid-template-columns:1fr}.clock-panel.wide{grid-column:auto}.clock-preview{height:132px}.preview-time{font-size:2.1rem}.clock-head{padding-top:12px}}
 </style>
 
-<div style="padding:18px 0 16px;text-align:center;border-bottom:1px solid #eee;margin-bottom:14px">
-<div style="font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:1.5rem;font-weight:400;letter-spacing:-.5px;color:#1a1a1a">pixel clock</div>
-<div style="font-size:.65rem;letter-spacing:3px;text-transform:uppercase;color:#bbb;margin-top:5px">settings</div>
-</div>
+<div id="clock-app">
+  <header class="clock-head"><h1>Clock</h1><span class="clock-state" id="state">Loading</span></header>
+  <div class="clock-preview" id="pv">
+    <div class="preview-grid"></div>
+    <div class="preview-digital" id="preview-digital"><div class="preview-time" id="preview-time">10:28</div><div class="preview-rule" id="preview-rule"></div><div class="preview-meta" id="preview-meta">Fri / 17 Jul</div></div>
+    <div class="preview-analog" id="preview-analog">
+      <i class="preview-tick"></i><i class="preview-tick"></i><i class="preview-tick"></i><i class="preview-tick"></i>
+      <i class="preview-hand preview-hour" id="preview-hour"></i><i class="preview-hand preview-minute" id="preview-minute"></i><i class="preview-hand preview-second" id="preview-second"></i><i class="preview-pin"></i>
+    </div>
+  </div>
 
-<div class="card">
-<div class="section-title">Mode</div>
-<div class="seg" id="mode-seg">
-<button id="mode_digital" onclick="sm('digital',1)">Digital</button>
-<button id="mode_analog" onclick="sm('analog',1)">Analog</button>
-</div>
-</div>
+  <div class="settings-grid">
+    <section class="clock-panel wide">
+      <h2 class="panel-title">Face</h2>
+      <div class="seg" id="mode-seg"><button id="mode_digital" onclick="setMode('digital',true)">Digital</button><button id="mode_analog" onclick="setMode('analog',true)">Round dial</button><button id="mode_analog_rect" onclick="setMode('analog_rect',true)">Edge dial</button></div>
+    </section>
 
-<div class="card">
-<div class="section-title">Colors</div>
-<div class="toggle-item"><span>Foreground</span><input type="color" id="fp" value="#ffffff" oninput="sc('f',this.value)"></div>
-<div class="toggle-item"><span>Shadow</span><label class="sw"><input type="checkbox" id="show_shadow" onchange="p('show_shadow='+(this.checked?1:0));document.getElementById('shadow-color').style.display=this.checked?'':' none'"><span class="sl"></span></label></div>
-<div id="shadow-color" style="display:none">
-<div class="toggle-item" style="padding-top:4px;padding-bottom:4px"><span style="opacity:.6;font-size:.82rem">Shadow Color</span><input type="color" id="shp" value="#404040" oninput="p('shadow_hex='+this.value.slice(1))"></div>
-</div>
-<div class="toggle-item"><span>Background</span><input type="color" id="bp" value="#000000" oninput="sc('b',this.value)"></div>
-<div class="toggle-item"><span>Frame</span><input type="color" id="fmp" value="#2a2a2a" oninput="p('frame_hex='+this.value.slice(1))"></div>
-</div>
+    <section class="clock-panel mode-only digital-only">
+      <h2 class="panel-title">Time</h2>
+      <div class="setting-row"><span>12-hour time</span><label class="sw"><input type="checkbox" id="h12" onchange="sendToggle(this);updatePreview()"><span class="sl"></span></label></div>
+      <div class="setting-row"><span>Show seconds</span><label class="sw"><input type="checkbox" id="show_seconds" onchange="sendToggle(this);syncAnalogSeconds();updatePreview()"><span class="sl"></span></label></div>
+      <div class="setting-row"><span>Blink separator</span><label class="sw"><input type="checkbox" id="blink_colon" onchange="sendToggle(this)"><span class="sl"></span></label></div>
+    </section>
 
-<div class="card">
-<div class="section-title">Display</div>
-<div class="toggle-item"><span>Show Seconds</span><label class="sw"><input type="checkbox" id="show_seconds" onchange="p('show_seconds='+(this.checked?1:0))"><span class="sl"></span></label></div>
-<div class="toggle-item" id="border-opt" style="display:none"><span>Show Circle</span><label class="sw"><input type="checkbox" id="show_border" onchange="p('show_border='+(this.checked?1:0))"><span class="sl"></span></label></div>
-<div class="toggle-item" id="dots-opt" style="display:none"><span>Show Hour Dots</span><label class="sw"><input type="checkbox" id="show_dots" onchange="p('show_dots='+(this.checked?1:0))"><span class="sl"></span></label></div>
-<div id="dots-color" style="display:none;margin-top:6px">
-<div class="toggle-item"><span>Dot Color</span><input type="color" id="dcp" value="#ffffff" oninput="sdc(this.value)"></div>
-</div>
-</div>
+    <section class="clock-panel mode-only digital-only">
+      <h2 class="panel-title">Typography</h2>
+      <div class="seg" id="font-seg"><button id="fb_mini" onclick="setFont('mini')">Fine</button><button id="fb_small" onclick="setFont('small')">Classic</button><button id="fb_large" onclick="setFont('large')">Bold</button></div>
+      <div class="setting-row"><span class="setting-copy">Scale<small>Limited automatically to fit</small></span></div>
+      <div class="seg" id="scale-seg"><button id="sc_1" onclick="setScale(1)">1&times;</button><button id="sc_2" onclick="setScale(2)">2&times;</button><button id="sc_3" onclick="setScale(3)">3&times;</button><button id="sc_4" onclick="setScale(4)">4&times;</button></div>
+    </section>
 
-<div class="card">
-<div class="section-title">Info</div>
-<div class="toggle-item"><span>Show Day</span><label class="sw"><input type="checkbox" id="show_day" onchange="p('show_day='+(this.checked?1:0))"><span class="sl"></span></label></div>
-<div class="toggle-item"><span>Show Date</span><label class="sw"><input type="checkbox" id="show_date" onchange="p('show_date='+(this.checked?1:0))"><span class="sl"></span></label></div>
-<div class="toggle-item"><span>Show Temperature</span><label class="sw"><input type="checkbox" id="show_temp" onchange="p('show_temp='+(this.checked?1:0))"><span class="sl"></span></label></div>
-<div class="toggle-item"><span>Accent Line</span><label class="sw"><input type="checkbox" id="accent" onchange="p('accent='+(this.checked?1:0))"><span class="sl"></span></label></div>
-<div id="accent-color" style="display:none;margin-top:6px">
-<div class="toggle-item"><span>Accent Color</span><input type="color" id="acp" value="#4488ff" oninput="sac(this.value)"></div>
-</div>
-</div>
+    <section class="clock-panel mode-only analog-only">
+      <h2 class="panel-title">Dial</h2>
+      <div class="setting-row"><span>Outline</span><label class="sw"><input type="checkbox" id="show_border" onchange="sendToggle(this);updatePreview()"><span class="sl"></span></label></div>
+      <div class="setting-row"><span>Hour markers</span><label class="sw"><input type="checkbox" id="show_dots" onchange="sendToggle(this);updatePreview()"><span class="sl"></span></label></div>
+      <div class="setting-row"><span>Second hand</span><label class="sw"><input type="checkbox" id="analog_seconds" onchange="setAnalogSeconds(this)"><span class="sl"></span></label></div>
+    </section>
 
-<div class="card">
-<div class="section-title">Weather City</div>
-<div style="display:flex;gap:8px">
-<input type="text" id="city" placeholder="e.g. Stockholm">
-<button class="btn btn-sm" onclick="p('city='+encodeURIComponent(document.getElementById('city').value))">Set</button>
-</div>
-</div>
+    <section class="clock-panel mode-only analog-only">
+      <h2 class="panel-title">Hands</h2>
+      <div class="setting-row"><span>Hour</span><label class="color-input"><input type="color" id="hour_hex" oninput="sendColor(this)"><b></b></label></div>
+      <div class="setting-row"><span>Minute</span><label class="color-input"><input type="color" id="min_hex" oninput="sendColor(this)"><b></b></label></div>
+      <div class="setting-row"><span>Second</span><label class="color-input"><input type="color" id="sec_hex" oninput="sendColor(this)"><b></b></label></div>
+      <div class="setting-row"><span>Markers</span><label class="color-input"><input type="color" id="dots_hex" oninput="sendColor(this)"><b></b></label></div>
+    </section>
 
-<div id="digital-opts">
-<div class="card">
-<div class="section-title">Display (Digital)</div>
-<div class="toggle-item"><span>12-Hour Format</span><label class="sw"><input type="checkbox" id="h12" onchange="p('h12='+(this.checked?1:0))"><span class="sl"></span></label></div>
-<div class="toggle-item"><span>Blink Colon</span><label class="sw"><input type="checkbox" id="blink_colon" onchange="p('blink_colon='+(this.checked?1:0))"><span class="sl"></span></label></div>
-<div class="toggle-item"><span>Rainbow Mode</span><label class="sw"><input type="checkbox" id="rainbow" onchange="p('rainbow='+(this.checked?1:0))"><span class="sl"></span></label></div>
-</div>
+    <section class="clock-panel">
+      <h2 class="panel-title">Information</h2>
+      <div class="setting-row"><span>Weekday</span><label class="sw"><input type="checkbox" id="show_day" onchange="sendToggle(this);updatePreview()"><span class="sl"></span></label></div>
+      <div class="setting-row"><span>Date</span><label class="sw"><input type="checkbox" id="show_date" onchange="sendToggle(this);updatePreview()"><span class="sl"></span></label></div>
+      <div class="setting-row"><span>Temperature</span><label class="sw"><input type="checkbox" id="show_temp" onchange="sendToggle(this);showWeather();updatePreview()"><span class="sl"></span></label></div>
+      <div class="weather-row" id="weather-row"><input type="text" id="city" placeholder="City" aria-label="Weather city"><button class="small-btn" onclick="setCity()">Set</button></div>
+    </section>
 
-<div class="card">
-<div class="section-title">Font Size</div>
-<div class="seg" id="font-seg">
-<button id="fb_mini" onclick="sf('mini')">Mini</button>
-<button id="fb_small" onclick="sf('small')">Small</button>
-<button id="fb_large" onclick="sf('large')">Large</button>
-</div>
-</div>
+    <section class="clock-panel">
+      <h2 class="panel-title">Palette</h2>
+      <div class="setting-row"><span>Background</span><label class="color-input"><input type="color" id="b_hex" oninput="sendColor(this)"><b></b></label></div>
+      <div class="setting-row mode-only digital-only"><span>Time</span><label class="color-input"><input type="color" id="f_hex" oninput="sendColor(this)"><b></b></label></div>
+      <div class="setting-row mode-only digital-only"><span>Soft shadow</span><label class="sw"><input type="checkbox" id="show_shadow" onchange="sendToggle(this);showShadow();updatePreview()"><span class="sl"></span></label></div>
+      <div class="setting-row mode-only digital-only" id="shadow-row"><span>Shadow color</span><label class="color-input"><input type="color" id="shadow_hex" oninput="sendColor(this)"><b></b></label></div>
+      <div class="setting-row mode-only analog-only"><span>Outline</span><label class="color-input"><input type="color" id="frame_hex" oninput="sendColor(this)"><b></b></label></div>
+      <div class="setting-row"><span>Accent line</span><label class="sw"><input type="checkbox" id="accent" onchange="sendToggle(this);showAccent();updatePreview()"><span class="sl"></span></label></div>
+      <div class="setting-row" id="accent-row"><span>Accent color</span><label class="color-input"><input type="color" id="accent_hex" oninput="sendColor(this)"><b></b></label></div>
+      <div class="setting-row mode-only digital-only"><span class="setting-copy">Color cycle<small>Slow spectrum animation</small></span><label class="sw"><input type="checkbox" id="rainbow" onchange="sendToggle(this)"><span class="sl"></span></label></div>
+    </section>
+  </div>
 
-<div class="card">
-<div class="section-title">Scale</div>
-<div class="seg" id="scale-seg">
-<button id="sc_1" onclick="ss(1)">1×</button>
-<button id="sc_2" onclick="ss(2)">2×</button>
-<button id="sc_3" onclick="ss(3)">3×</button>
-<button id="sc_4" onclick="ss(4)">4×</button>
+  <div class="save-bar"><span class="save-note" id="save-note">Changes appear on the display immediately</span><button class="save-btn" onclick="saveSettings()">Save settings</button></div>
 </div>
-</div>
-</div>
-
-<button class="btn btn-full" onclick="p('save=true')">&#128190; Save Settings</button>
 
 <script>
-var dt,_mode="digital";
-function p(q){fetch("/?"+q,{method:"POST"})}
-function sc(t,h){
-if(t==='f')document.getElementById('fp').value=h;
-else document.getElementById('bp').value=h;
-upv();clearTimeout(dt);
-dt=setTimeout(function(){p((t==='f'?'f_hex':'b_hex')+'='+h.slice(1))},200);
+var mode="digital",debounceTimer;
+function post(query){
+  document.getElementById("state").textContent="Updating";
+  document.getElementById("save-note").textContent="Unsaved changes";
+  return fetch("/?"+query,{method:"POST"}).then(function(response){
+    if(!response.ok)throw new Error("Request failed");
+    document.getElementById("state").textContent="Live";return true;
+  }).catch(function(){document.getElementById("state").textContent="Offline";return false});
 }
-function sac(h){document.getElementById('acp').value=h;p('accent_hex='+h.slice(1))}
-function sdc(h){document.getElementById('dcp').value=h;p('dots_hex='+h.slice(1))}
-function sf(s){p('size='+s);document.querySelectorAll('#font-seg button').forEach(function(b){b.classList.remove('on')});document.getElementById('fb_'+s).classList.add('on')}
-function ss(n){p('scale='+n);document.querySelectorAll('#scale-seg button').forEach(function(b){b.classList.remove('on')});document.getElementById('sc_'+n).classList.add('on')}
-function sm(m,send){
-_mode=m;if(send)p('mode='+m);
-document.querySelectorAll('#mode-seg button').forEach(function(b){b.classList.remove('on')});
-document.getElementById('mode_'+m).classList.add('on');
-document.getElementById('digital-opts').style.display=m==='digital'?'':'none';
-document.getElementById('border-opt').style.display=m==='analog'?'':'none';
-document.getElementById('dots-opt').style.display=m==='analog'?'':'none';
-document.getElementById('dots-color').style.display=(m==='analog'&&document.getElementById('show_dots').checked)?'':'none';
+function sendToggle(input){post(input.id+"="+(input.checked?1:0))}
+function syncAnalogSeconds(){document.getElementById("analog_seconds").checked=document.getElementById("show_seconds").checked}
+function setAnalogSeconds(input){document.getElementById("show_seconds").checked=input.checked;post("show_seconds="+(input.checked?1:0));updatePreview()}
+function sendColor(input){
+  var label=input.parentNode.querySelector("b");if(label)label.textContent=input.value;
+  updatePreview();clearTimeout(debounceTimer);
+  debounceTimer=setTimeout(function(){post(input.id+"="+input.value.slice(1))},180);
 }
-function upv(){var v=document.getElementById('pv');if(!v)return;v.style.backgroundColor=document.getElementById('bp').value;v.style.color=document.getElementById('fp').value}
-document.getElementById('accent').addEventListener('change',function(){document.getElementById('accent-color').style.display=this.checked?'':'none'});
-fetch("/settings").then(function(r){return r.json()}).then(function(s){
-document.getElementById("show_day").checked=s.show_day==1;
-document.getElementById("show_date").checked=s.show_date==1;
-document.getElementById("show_seconds").checked=s.show_seconds==1;
-document.getElementById("show_border").checked=s.show_border==1;
-document.getElementById("show_dots").checked=s.show_dots==1;
-if(s.dots_hex)document.getElementById("dcp").value=s.dots_hex;
-document.getElementById('show_dots').addEventListener('change',function(){document.getElementById('dots-color').style.display=(this.checked&&_mode==='analog')?'':'none'});
-document.getElementById("show_temp").checked=s.show_temp==1;
-document.getElementById("h12").checked=s.h12==1;
-document.getElementById("blink_colon").checked=s.blink_colon==1;
-document.getElementById("rainbow").checked=s.rainbow==1;
-document.getElementById("accent").checked=s.accent==1;
-if(s.accent==1)document.getElementById('accent-color').style.display='';
-if(s.accent_hex)document.getElementById("acp").value=s.accent_hex;
-if(s.city)document.getElementById("city").value=s.city;
-if(s.f_hex)document.getElementById("fp").value=s.f_hex;
-if(s.b_hex)document.getElementById("bp").value=s.b_hex;
-document.getElementById("show_shadow").checked=s.show_shadow!=0;
-if(s.show_shadow!=0)document.getElementById("shadow-color").style.display='';
-if(s.shadow_hex)document.getElementById("shp").value=s.shadow_hex;
-if(s.frame_hex)document.getElementById("fmp").value=s.frame_hex;
-if(s.font){var fb=document.getElementById('fb_'+s.font);if(fb){document.querySelectorAll('#font-seg button').forEach(function(b){b.classList.remove('on')});fb.classList.add('on')}}
-var sc=s.scale||1;var sb=document.getElementById('sc_'+sc);
-document.querySelectorAll('#scale-seg button').forEach(function(b){b.classList.remove('on')});
-if(sb)sb.classList.add('on');
-if(s.mode)sm(s.mode);
-upv();
-});
+function setMode(next,send){
+  mode=next;if(send)post("mode="+next);
+  document.querySelectorAll("#mode-seg button").forEach(function(button){button.classList.remove("on")});
+  document.getElementById("mode_"+next).classList.add("on");
+  document.querySelectorAll(".mode-only").forEach(function(item){item.style.display="none"});
+  document.querySelectorAll(next==="digital"?".digital-only":".analog-only").forEach(function(item){item.style.display="flex"});
+  document.querySelectorAll("section.mode-only").forEach(function(item){if(item.style.display==="flex")item.style.display="block"});
+  if(next==="digital")showShadow();updatePreview();
+}
+function setFont(value){post("size="+value);setSelected("font-seg","fb_"+value);updatePreview()}
+function setScale(value){post("scale="+value);setSelected("scale-seg","sc_"+value);updatePreview()}
+function setSelected(group,id){document.querySelectorAll("#"+group+" button").forEach(function(button){button.classList.remove("on")});var selected=document.getElementById(id);if(selected)selected.classList.add("on")}
+function showWeather(){document.getElementById("weather-row").style.display=document.getElementById("show_temp").checked?"grid":"none"}
+function showShadow(){document.getElementById("shadow-row").style.display=document.getElementById("show_shadow").checked?"flex":"none"}
+function showAccent(){document.getElementById("accent-row").style.display=document.getElementById("accent").checked?"flex":"none"}
+function setCity(){post("city="+encodeURIComponent(document.getElementById("city").value.trim()))}
+function saveSettings(){post("save=true").then(function(saved){if(saved){document.getElementById("save-note").textContent="Saved on the device";document.getElementById("state").textContent="Saved"}})}
+function updatePreview(){
+  var digital=document.getElementById("preview-digital"),analog=document.getElementById("preview-analog");
+  var background=document.getElementById("b_hex").value||"#000000",foreground=document.getElementById("f_hex").value||"#ffffff";
+  document.getElementById("pv").style.backgroundColor=background;document.getElementById("pv").style.color=foreground;
+  digital.style.display=mode==="digital"?"block":"none";analog.style.display=mode==="digital"?"none":"block";analog.className="preview-analog"+(mode==="analog_rect"?" rect":"");
+  analog.style.borderColor=document.getElementById("show_border").checked?(document.getElementById("frame_hex").value||foreground):"transparent";
+  analog.querySelectorAll(".preview-tick").forEach(function(tick){tick.style.display=document.getElementById("show_dots").checked?"block":"none";tick.style.backgroundColor=document.getElementById("dots_hex").value});
+  document.getElementById("preview-hour").style.backgroundColor=document.getElementById("hour_hex").value;document.getElementById("preview-minute").style.backgroundColor=document.getElementById("min_hex").value;document.getElementById("preview-second").style.backgroundColor=document.getElementById("sec_hex").value;document.getElementById("preview-second").style.display=document.getElementById("show_seconds").checked?"block":"none";
+  var time=document.getElementById("h12").checked?"10:28":"22:28";if(document.getElementById("show_seconds").checked)time+=":42";document.getElementById("preview-time").textContent=time;
+  var scale=document.querySelector("#scale-seg .on");scale=scale?parseInt(scale.id.slice(3),10):1;document.getElementById("preview-time").style.fontSize=Math.min(2.15+scale*.2,2.85)+"rem";
+  var shadow=document.getElementById("shadow_hex").value||"#333333";document.getElementById("preview-time").style.textShadow=document.getElementById("show_shadow").checked?"2px 2px 0 "+shadow:"none";
+  var meta=[];if(document.getElementById("show_day").checked)meta.push("Fri");if(document.getElementById("show_date").checked)meta.push("17 Jul");if(document.getElementById("show_temp").checked)meta.push("21 C");document.getElementById("preview-meta").textContent=meta.join(" / ");
+  document.getElementById("preview-rule").style.display=document.getElementById("accent").checked?"block":"none";document.getElementById("preview-rule").style.backgroundColor=document.getElementById("accent_hex").value;
+}
+fetch("/settings").then(function(response){return response.json()}).then(function(settings){
+  ["show_day","show_date","show_seconds","show_border","show_dots","show_temp","h12","blink_colon","rainbow","accent","show_shadow"].forEach(function(key){document.getElementById(key).checked=settings[key]==1});syncAnalogSeconds();
+  ["f_hex","b_hex","hour_hex","min_hex","sec_hex","dots_hex","shadow_hex","frame_hex","accent_hex"].forEach(function(key){
+    var fallback={f_hex:"#ffffff",b_hex:"#000000",hour_hex:"#ffffff",min_hex:"#4488ff",sec_hex:"#ff4444",dots_hex:"#ffffff",shadow_hex:"#333333",frame_hex:"#2a2a2a",accent_hex:"#4488ff"}[key];
+    var input=document.getElementById(key);input.value=settings[key]||fallback;var label=input.parentNode.querySelector("b");if(label)label.textContent=input.value;
+  });
+  document.getElementById("city").value=settings.city||"";setSelected("font-seg","fb_"+(settings.font||"large"));setSelected("scale-seg","sc_"+(settings.scale||1));showWeather();showAccent();setMode(settings.mode||"digital",false);document.getElementById("state").textContent="Live";
+}).catch(function(){document.getElementById("state").textContent="Offline"});
 </script>

@@ -248,6 +248,45 @@ def _draw_circle_outline(bmp, cx, cy, r, cidx):
 
 _last_analog = ""
 
+def draw_analog_rect(h, m, s):
+    global _last_analog
+    tag = str(h) + ":" + str(m) + ":" + str(s) if clocksettings["show_seconds"] else str(h) + ":" + str(m)
+    if tag == _last_analog:
+        return
+    _last_analog = tag
+    pad = 2
+    cx = DISP_W // 2
+    cy = DISP_H // 2
+    hw = DISP_W // 2 - pad
+    hh = DISP_H // 2 - pad
+    bitmaptools.fill_region(screen, 0, 0, DISP_W, DISP_H, 14)
+    if clocksettings["show_border"]:
+        bitmaptools.draw_line(screen, pad, pad, DISP_W - pad - 1, pad, 13)
+        bitmaptools.draw_line(screen, pad, DISP_H - pad - 1, DISP_W - pad - 1, DISP_H - pad - 1, 13)
+        bitmaptools.draw_line(screen, pad, pad, pad, DISP_H - pad - 1, 13)
+        bitmaptools.draw_line(screen, DISP_W - pad - 1, pad, DISP_W - pad - 1, DISP_H - pad - 1, 13)
+    if clocksettings["show_dots"]:
+        for i in range(12):
+            a = _angle(i, 12)
+            cos_a = math.cos(a)
+            sin_a = math.sin(a)
+            tx = hw / abs(cos_a) if abs(cos_a) > 0.001 else 9999
+            ty = hh / abs(sin_a) if abs(sin_a) > 0.001 else 9999
+            t = min(tx, ty)
+            dx = max(0, min(DISP_W - 1, int(cx + cos_a * t + 0.5)))
+            dy = max(0, min(DISP_H - 1, int(cy + sin_a * t + 0.5)))
+            screen[dx, dy] = 18
+    R = min(hw, hh)
+    h12 = (h % 12) + m / 60.0
+    ha = _angle(h12, 12)
+    ma = _angle(m, 60)
+    _draw_hand(screen, cx, cy, ha, int(R * 0.5), 15, thick=True)
+    _draw_hand(screen, cx, cy, ma, int(R * 0.8), 16, thick=True)
+    if clocksettings["show_seconds"]:
+        sec_a = _angle(s, 60)
+        _draw_hand(screen, cx, cy, sec_a, int(R * 0.9), 17, thick=False)
+    screen[cx, cy] = 5
+
 def draw_analog(h, m, s):
     global _last_analog
     tag = str(h) + ":" + str(m) + ":" + str(s) if clocksettings["show_seconds"] else str(h) + ":" + str(m)
@@ -322,7 +361,7 @@ def draw_time(timestring, colon_vis=True):
     global _last_tstr
     f = load_screen.currentfont
     fh = f["fontheight"]
-    scale = clocksettings.get("scale", 1)
+    requested_scale = clocksettings.get("scale", 1)
 
     # build display string with optional colon blink
     dstr = timestring
@@ -356,10 +395,7 @@ def draw_time(timestring, colon_vis=True):
     pprint(dstr, 0, font=f, clear=False, color="white",
            top_offset=-1, _refresh=False, window=tmp, _clearscreen=False,
            block=bool(_shadow), shadow_color=12)
-    sw = (ref_w + 2) * scale
-    sh = (fh + 2) * scale
 
-    # calculate info bar content
     info_parts = []
     if clocksettings["show_day"]:
         info_parts.append(day_name)
@@ -370,44 +406,44 @@ def draw_time(timestring, colon_vis=True):
     if clocksettings["show_temp"] and temp_string:
         info_parts.append(temp_string)
     info_str = " . ".join(info_parts) if info_parts else ""
-    info_h = 7 if info_str else 0  # mini font height + 1px gap
+    info_h = 6 if info_str else 0
+    accent_gap = 3 if clocksettings["accent"] else 0
 
-    # accent line
-    accent_h = 2 if clocksettings["accent"] else 0
+    # Fit the visible glyphs, not the temporary bitmap's 2px padding.
+    max_time_h = max(1, DISP_H - info_h - accent_gap - 2)
+    scale = max(1, requested_scale)
+    shadow_pad = scale if _shadow else 0
+    while scale > 1 and (ref_w * scale + shadow_pad > DISP_W or fh * scale + shadow_pad > max_time_h):
+        scale -= 1
+        shadow_pad = scale if _shadow else 0
+    sw = ref_w * scale + shadow_pad
+    sh = fh * scale + shadow_pad
+    total_h = sh + info_h + accent_gap
+    time_y = max((DISP_H - total_h) // 2, 0)
 
-    # layout vertically centered
-    total_h = sh + 2 * BOX_PAD + 2 + info_h + accent_h
-    box_w = min(sw + 2 * BOX_PAD + 2, DISP_W)
-    box_h = min(sh + 2 * BOX_PAD + 2, DISP_H)
-    start_y = max((DISP_H - total_h) // 2, 0)
-    box_x = max((DISP_W - box_w) // 2, 0)
-    box_y = start_y
-
-    bitmaptools.fill_region(screen, 0, 0, DISP_W, DISP_H, 0)
-    draw_rounded_box(screen, box_x, box_y, box_w, box_h, 13, 14)
+    bitmaptools.fill_region(screen, 0, 0, DISP_W, DISP_H, 14)
 
     if scale == 1:
-        tx = box_x + (box_w - tw) // 2
-        ty = box_y + BOX_PAD + 1
-        bitmaptools.blit(screen, tmp, tx, ty,
+        tx = max((DISP_W - tw) // 2, 0)
+        bitmaptools.blit(screen, tmp, tx, time_y,
                          x1=0, y1=0, x2=tmp.width, y2=tmp.height,
                          skip_source_index=0)
     else:
         bitmaptools.rotozoom(screen, tmp,
-                             ox=DISP_W // 2, oy=box_y + BOX_PAD + 1 + (tmp.height // 2) * scale,
+                             ox=DISP_W // 2, oy=time_y + (tmp.height // 2) * scale,
                              px=tmp.width // 2, py=tmp.height // 2,
                              angle=0.0, scale=float(scale),
                              skip_index=0)
 
-    # accent line below box
-    if accent_h:
-        ay = box_y + box_h + 1
+    if clocksettings["accent"]:
+        ay = time_y + sh + 1
         if ay < DISP_H:
-            bitmaptools.fill_region(screen, box_x + 2, ay, box_x + box_w - 2, min(ay + 1, DISP_H), 19)
+            line_w = min(max(sw // 3, 8), DISP_W - 4)
+            ax = (DISP_W - line_w) // 2
+            bitmaptools.fill_region(screen, ax, ay, ax + line_w, min(ay + 1, DISP_H), 19)
 
-    # info bar below accent
     if info_str:
-        iy = box_y + box_h + accent_h + 1
+        iy = time_y + sh + accent_gap
         iw = strlen(info_str, font_mini)
         ix = max((DISP_W - iw) // 2, 0)
         if iy + 5 <= DISP_H:
@@ -516,6 +552,9 @@ while load_settings.app_running:
     if clocksettings["mode"] == "analog":
         if second_changed:
             draw_analog(int(hour), int(minute), int(second))
+    elif clocksettings["mode"] == "analog_rect":
+        if second_changed:
+            draw_analog_rect(int(hour), int(minute), int(second))
     else:
         if second_changed or (clocksettings["blink_colon"] and colon_changed):
             draw_time(timestring, _colon_on)
