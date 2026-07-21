@@ -140,6 +140,7 @@ PAGE_TPL = """<!DOCTYPE html>
 <tr><td><b>{T_TONE}</b></td><td><div style="display:flex;gap:10px">{TONE_SWATCHES}</div></td></tr>
 {FONT_SIZE_ROW}
 {CLOCK_ROW_HTML}
+{MULTI_LINE_ID_ROW}
 <tr><td><b>Timer</b></td><td><button type="button" class="btn btn-sm" onclick="location.href='/?timer=set'">&#8987; Configure</button></td></tr>
 <tr><td><b>{T_ROTATION}</b></td><td><button type="button" class="btn btn-sm" data-u="/?rotate=1">&#128260; 90&deg;</button></td></tr>
 <tr><td><b>{T_POWER}</b></td><td><input type="text" id="power" class="form-control" style="width:80px;display:inline" placeholder="{POWER_VAL}" data-p="power" data-e="blur"></td></tr>
@@ -445,6 +446,7 @@ def html():
         + _opt("blue", s.get("clock_row_color", "white"), "Blue")
         + '</select></td></tr>'
     )
+    multi_line_id_row = '<tr><td><b>Multi line ID</b></td><td>' + _chk("MULTI_LINE_ID", s.get("multi_line_id", 0), "/?multi_line_id=switch", "Show line ID") + '</td></tr>' if if_long > 64 else ""
     # dest_scroll
     dest_scroll_html = _chk("DEST_SCROLL", s.get("dest_scroll", 0), "/?dest_scroll=switch", "Scroll long destination names")
 
@@ -508,6 +510,7 @@ def html():
         "LISTCOLOR_CHK": listcolor_html,
         "LISTCOLOR_TIME_CHK": listcolor_time_html,
         "CLOCK_ROW_HTML": clock_row_html,
+        "MULTI_LINE_ID_ROW": multi_line_id_row,
         "T_LINE_LENGTH": T["line_length"],
         "T_LINE_LENGTH_HELP": "Most line numbers are 1-2 characters, so this often looks the same until a line uses a longer code.",
         "LINE_LENGTH_VAL": str(s["line_length"]),
