@@ -1,4 +1,4 @@
 {"description":"Live public transport departures around Europe (previously known as T-Skylt)",
-"v0.963" : ["added option to filter strings from destination"],
+"v0.97" : ["added US/NYC to operators"],
 "icon":0,
 "emoji":"🚉"}
