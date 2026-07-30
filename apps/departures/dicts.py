@@ -39,7 +39,8 @@ def country_name(country):
            "no":"Norway", "de":"Germany", "se":"Sweden", "fi":"Finland",
            "dk":"Denmark", "fr":"France", "at":"Austria", "uk":"United Kingdom",
            "it":"Italy", "pl":"Poland", "cz":"Czechia", "hu":"Hungary",
-           "ro":"Romania", "es":"Spain", "pt":"Portugal", "lt":"Lithuania", "lu":"Luxembourg", "ie":"Ireland"}
+           "ro":"Romania", "es":"Spain", "pt":"Portugal", "lt":"Lithuania", "lu":"Luxembourg", "ie":"Ireland",
+          "us":"USA"}
   try: return names[country]
   except: return country
 
