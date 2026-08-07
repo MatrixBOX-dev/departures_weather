@@ -15,7 +15,8 @@ def settings():
                 "wifi_power":15,
                 "ai_provider":"",
                 "ai_key":"",
-                "ai_model":""}
+                "ai_model":"",
+                "color_correct":False}
 
      try: #iteration
             defaults = set(settings)

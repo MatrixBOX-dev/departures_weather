@@ -8,6 +8,8 @@ from font_large import font_large
 
 #settings =  load_settings.settings() # behövs för boot.py
 displayio.release_displays()
+_cc = str(settings.get("color_correct","")).lower() not in ("","false","0")
+_sw = lambda p: [p[0],p[2],p[1],p[3],p[5],p[4]] if _cc else p
 
 
 
@@ -23,7 +25,7 @@ if os.uname().machine == "Waveshare ESP32-S3-Zero with ESP32S3":
         addr_pins_placeholder.append(board.IO17)
         rgb_pins_placeholder = [board.IO1,board.IO2,board.IO3, board.IO4,board.IO5,board.IO6]
     matrix = RGBMatrix(width=settings["width"], height=settings["height"], bit_depth=_bit_depth,
-                    rgb_pins=rgb_pins_placeholder,
+                    rgb_pins=_sw(rgb_pins_placeholder),
                     addr_pins = addr_pins_placeholder,
                     clock_pin=board.IO11, latch_pin=board.IO12, output_enable_pin=board.IO13, tile=settings["tiles"],
                     serpentine=False, doublebuffer=True)
@@ -32,7 +34,7 @@ elif "N8R8" in os.uname().machine:
     addr_pins_placeholder = [board.GPIO3, board.GPIO8, board.GPIO18, board.GPIO17]
     if settings["height"] == 64: addr_pins_placeholder.append(board.GPIO21)
     matrix = RGBMatrix(width=settings["width"], height=settings["height"], bit_depth=_bit_depth,
-                    rgb_pins=[board.GPIO1,board.GPIO2,board.GPIO42, board.GPIO41,board.GPIO40,board.GPIO39],
+                    rgb_pins=_sw([board.GPIO1,board.GPIO2,board.GPIO42, board.GPIO41,board.GPIO40,board.GPIO39]),
                     addr_pins = addr_pins_placeholder,
                     clock_pin=board.GPIO12, latch_pin=board.GPIO13, output_enable_pin=board.GPIO14, tile=settings["tiles"],
                     serpentine=False, doublebuffer=True)
@@ -41,7 +43,7 @@ elif "ESP32-S2" in os.uname().machine:  # FK-8F1
     addr_pins_placeholder = [board.IO38, board.IO37, board.IO36, board.IO35]
     if settings["height"] == 64: addr_pins_placeholder.append(board.IO34)
     matrix = RGBMatrix(width=settings["width"], height=settings["height"], bit_depth=_bit_depth,
-                    rgb_pins=[board.IO12, board.IO13, board.IO17, board.IO21, board.IO20, board.IO16],
+                    rgb_pins=_sw([board.IO12, board.IO13, board.IO17, board.IO21, board.IO20, board.IO16]),
                     addr_pins=addr_pins_placeholder,
                     clock_pin=board.IO10, latch_pin=board.IO33, output_enable_pin=board.IO11, tile=settings["tiles"],
                     serpentine=False, doublebuffer=True)
