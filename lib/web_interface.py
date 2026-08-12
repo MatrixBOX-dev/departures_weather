@@ -221,11 +221,40 @@ def _draw_progress(current, total, filename, error=False, label="installing"):
     # Draw label on line 0 LAST (line=0 auto-refreshes, showing complete frame)
     pprint(label + " " + str(current) + "/" + str(total), 0, _clearscreen=False)
 
+def _bootstrapper_urls(app):
+    """Returns (raw_url, file_list) if app/__init__.py has a # Bootstraps comment."""
+    try:
+        raw = api = None
+        # Try local file first (reinstall), fall back to main repo (first install)
+        content = None
+        try:
+            with open("/" + app + "/__init__.py") as f:
+                content = f.read()
+        except:
+            r = requests.get(settings["repository_url"] + "apps/" + app + "/__init__.py", timeout=5)
+            if r.status_code == 200:
+                content = r.text
+            r.close()
+        if not content or not content.lstrip().startswith("# Bootstraps"):
+            return None, None
+        for line in content.split("\n"):
+            line = line.strip()
+            if line.startswith("_RAW"): raw = line.split('"')[1]
+            elif line.startswith("_API"): api = line.split('"')[1]
+        if not (raw and api): return None, None
+        r = requests.get(api, headers={"User-Agent": "MatrixBOX"}, timeout=10)
+        files = [i["path"] for i in json.loads(r.text)["tree"] if i["type"] == "blob"]
+        r.close()
+        return raw, files
+    except: return None, None
+
 def install_app(app):
     if app == "system": app = "/"
+    _ext_raw, _ext_files = _bootstrapper_urls(app) if app != "/" else (None, None)
     print("Install: ", app)
     applist = load_settings.latest_available_apps
-    no_of_files = len(applist[app])
+    _files = _ext_files if _ext_files is not None else applist.get(app, [])
+    no_of_files = len(_files)
     print("Applist: ", applist, " Files: ", no_of_files)
     os.chdir("/")
     if app != "/":
@@ -241,7 +270,7 @@ def install_app(app):
         clearscreen(False)
         # Pass 1: download all files, verify each returns 200
         downloads = []
-        for x, file in enumerate(applist[app]):
+        for x, file in enumerate(_files):
             if "/" in file:
                 parts = file.split("/")[:-1]
                 path = ""
@@ -250,11 +279,9 @@ def install_app(app):
                     try: os.mkdir(path)
                     except: pass
             print("File: ", file)
-            file_url = settings["repository_url"]
-            if app != "/":
-                file_url += "apps/" + app + "/"
             _draw_progress(x, no_of_files, file)
-            resp = requests.get(file_url + file)
+            _url = (_ext_raw + file) if _ext_raw else (settings["repository_url"] + ("apps/" + app + "/" if app != "/" else "") + file)
+            resp = requests.get(_url)
             print(resp.status_code)
             if resp.status_code != 200:
                 _draw_progress(x + 1, no_of_files, file, True)
@@ -304,6 +331,10 @@ def install_app(app):
         except: pass
         window.fill(0)
         pprint("Done.", 1, _clearscreen=True)
+        if _ext_raw:
+            try:
+                with open("/" + app + "/.installed", "w") as f: f.write("")
+            except: pass
         if app == "/":
             try:
                 with open("reboot_required", "w") as f: f.write("")
