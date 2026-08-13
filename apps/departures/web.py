@@ -15,7 +15,7 @@ country_and_operators = {
   "fr":[["sncf","SNCF"], ["pa","Paris"], ["ilevia","Ilévia"], ["met","Le MET"]],
   "lt":[["vil","Vilnius"]],
   "be":[["sncb","SNCB"], ["stib","STIB"], ["delijn","De Lijn"]],
-  "uk":[["lo","Tfl (London)"]],
+  "uk":[["lo","Tfl (London)"],["nr","National Rail"]],
   "hu":[["bu","Budapest"]],
   "us":[["nyc_subway","NYC Subway"],["nyc_lirr","Long Island Rail Road"],["nyc_mnr","Metro-North Railroad"],["nyc_bus_bx","MTA Bus - Bronx"],["nyc_bus_b","MTA Bus - Brooklyn"],["nyc_bus_m","MTA Bus - Manhattan"],["nyc_bus_q","MTA Bus - Queens"],["nyc_bus_si","MTA Bus - Staten Island"],["nyc_bus_co","MTA Bus Company"]],
   "cz":[["pr","Prague (PID)"]],
