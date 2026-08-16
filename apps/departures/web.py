@@ -127,6 +127,7 @@ PAGE_TPL = """<!DOCTYPE html>
 <tr><td><b>{T_LIST_COLORS}</b></td><td>{LISTCOLOR_CHK} {LISTCOLOR_TIME_CHK}</td></tr>
 {FONT_SIZE_ROW}
 {XS_LINE_ID_ROW}
+{CLOCK_ROW_HTML}
 <tr><td><b>Scroll dest</b></td><td>{DEST_SCROLL_CHK}</td></tr>
 <tr><td><b>Timer</b></td><td><button type="button" onclick="location.href='/?timer=set'">&#8987;</button></td></tr>
 <tr><td><b>{T_ROTATION}</b></td><td><button type="button" data-u="/?rotate=1">&#128260; 90&deg;</button></td></tr>
@@ -134,7 +135,8 @@ PAGE_TPL = """<!DOCTYPE html>
 <tr><td><b>{T_POWER}</b></td><td><input type="text" id="power" class="form-control" style="width:80px;display:inline" placeholder="{POWER_VAL}" data-p="power" data-e="blur"></td></tr>
 <tr><td><b>{T_LINE_LENGTH}</b></td><td><input type="text" id="line_length" class="form-control" style="width:80px;display:inline" placeholder="{LINE_LENGTH_VAL}" data-p="line_length" data-e="blur"></td></tr>
 <tr><td><b>{T_SHOW_LINES}</b></td><td><input type="text" id="show_lines" class="form-control" style="width:160px;display:inline" placeholder="{SHOW_LINES_VAL}" data-p="show_lines" data-e="blur"></td></tr>
-<tr><td><b>Strip from dest</b></td><td><input type="text" id="strip_dest" class="form-control" style="width:160px;display:inline" placeholder="{STRIP_DEST_VAL}" data-p="strip_dest" data-e="blur"></td></tr>
+<tr><td><b>Strip from dest</b></td><td><input type="text" id="strip_dest" class="form-control" style="width:160px;display:inline" placeholder="{STRIP_DEST_VAL}" data-p="strip_dest" data-e="blur" data-enc="1"></td></tr>
+<tr><td><b>Abbreviate dest</b></td><td><input type="text" id="dest_abbrev" class="form-control" style="width:160px;display:inline" placeholder="{DEST_ABBREV_VAL}" data-p="dest_abbrev" data-e="blur" data-enc="1"></td></tr>
 <tr><td><b>{T_NO_MORE_DEP}</b></td><td><input type="text" id="no_more_departures" class="form-control" style="width:160px;display:inline" placeholder="{NO_MORE_DEP_VAL}" data-p="no_more_departures" data-e="blur" data-enc="1"></td></tr>
 <tr><td><b>{T_MINS}</b></td><td><input type="text" id="mins" class="form-control" style="width:100px;display:inline" placeholder="{MINS_VAL}" data-p="mins" data-e="blur" data-enc="1"></td></tr>
 </table>
@@ -271,19 +273,18 @@ def html():
             "of": int(_st["offset"]), "di": int(_st["direction"])}
     stn_json = json.dumps(_stn_data)
 
-    # screen buttons
+    # screen buttons (used both for wide side-by-side lists and XS merged list stop selection)
     screen_btns = ""
     screen_btn_disp = ""
-    if if_long > 64:
-        if not int(s["multiple"]):
-            screen_btn_disp = "display:none;"
-        ns = 2 if if_long == 128 else 3
-        _p = []
-        for i in range(1, ns + 1):
-            _si = str(i)
-            _cls = "scr-btn act" if _si == str(num) else "scr-btn"
-            _p.append("<button class='" + _cls + "' type='button' onclick=\"pickScr(" + _si + ")\">"+_si+"</button>")
-        screen_btns = "".join(_p)
+    if not int(s["multiple"]):
+        screen_btn_disp = "display:none;"
+    ns = 2 if if_long == 128 else 3
+    _p = []
+    for i in range(1, ns + 1):
+        _si = str(i)
+        _cls = "scr-btn act" if _si == str(num) else "scr-btn"
+        _p.append("<button class='" + _cls + "' type='button' onclick=\"pickScr(" + _si + ")\">"+_si+"</button>")
+    screen_btns = "".join(_p)
 
     # search disable
     search_dis = "" if connected else "disabled"
@@ -397,10 +398,8 @@ def html():
     # clocktime
     clock_html = _chk("clocktime", s["clocktime"], "/?clocktime=switch", T["clocktime"])
 
-    # multiple (>64 only)
-    mult_html = ""
-    if if_long > 64:
-        mult_html = _chk("multiple", s["multiple"], "/?multiple=1", T["multiple"])
+    # multiple (wide: side-by-side lists; XS: merged single sorted list)
+    mult_html = _chk("multiple", s["multiple"], "/?multiple=1", T["multiple"])
 
     # deviations (SL only)
     devs_html = ""
@@ -441,6 +440,26 @@ def html():
     )
     font_size_row = '<tr><td><b>' + T["font_mini"] + '</b></td><td>' + font_size_html + '</td></tr>' if if_long > 64 else ""
     xs_line_id_row = '<tr><td><b>XS line ID</b></td><td>' + _chk("XS_LINE_ID", s.get("xs_line_id", 0), "/?xs_line_id=switch", "SHOW LINE ID") + '</td></tr>' if if_long <= 64 else ""
+    clock_row_html = (
+        '<tr><td><b>Clock row</b></td><td>' + _chk("SHOW_CLOCK_ROW", s.get("show_clock_row", 0), "/?show_clock_row=switch", "Show date/time instead of a departure") + '</td></tr>'
+        '<tr><td><b>Clock: show date</b></td><td>' + _chk("CLOCK_ROW_DATE", s.get("clock_row_date", 0), "/?clock_row_date=switch", "Include date") + '</td></tr>'
+        '<tr><td><b>Clock: position</b></td><td><select id="clock_row_position" class="form-control" style="width:130px;display:inline" data-p="clock_row_position" data-e="change">'
+        + _opt("bottom", s.get("clock_row_position", "bottom"), "Bottom row")
+        + _opt("top", s.get("clock_row_position", "bottom"), "Top row")
+        + '</select></td></tr>'
+        '<tr><td><b>Clock: align</b></td><td><select id="clock_row_align" class="form-control" style="width:130px;display:inline" data-p="clock_row_align" data-e="change">'
+        + _opt("left", s.get("clock_row_align", "left"), "Left")
+        + _opt("center", s.get("clock_row_align", "left"), "Center")
+        + _opt("right", s.get("clock_row_align", "left"), "Right")
+        + '</select></td></tr>'
+        '<tr><td><b>Clock: color</b></td><td><select id="clock_row_color" class="form-control" style="width:130px;display:inline" data-p="clock_row_color" data-e="change">'
+        + _opt("white", s.get("clock_row_color", "white"), "White")
+        + _opt("yellow", s.get("clock_row_color", "white"), "Yellow / amber")
+        + _opt("red", s.get("clock_row_color", "white"), "Red")
+        + _opt("green", s.get("clock_row_color", "white"), "Green")
+        + _opt("blue", s.get("clock_row_color", "white"), "Blue")
+        + '</select></td></tr>'
+    )
     # dest_scroll
     dest_scroll_html = _chk("DEST_SCROLL", s.get("dest_scroll", 0), "/?dest_scroll=switch", "Scroll long names (experimental)")
 
@@ -519,6 +538,7 @@ def html():
         "LISTCOLOR_TIME_CHK": listcolor_time_html,
         "FONT_SIZE_ROW": font_size_row,
         "XS_LINE_ID_ROW": xs_line_id_row,
+        "CLOCK_ROW_HTML": clock_row_html,
         "DEST_SCROLL_CHK": dest_scroll_html,
         "DNS_SECTION": dns_html,
         "T_ROTATION": T.get("rotation", "Rotation"),
@@ -531,6 +551,7 @@ def html():
         "T_SHOW_LINES": T["show_lines"],
         "SHOW_LINES_VAL": ",".join(s["show_lines"]) if isinstance(s["show_lines"], list) else str(s["show_lines"]),
         "STRIP_DEST_VAL": ",".join(s.get("strip_dest", [])) if isinstance(s.get("strip_dest"), list) else str(s.get("strip_dest", "")),
+        "DEST_ABBREV_VAL": ",".join([p[0] + "=" + p[1] for p in s.get("dest_abbrev", []) if isinstance(p, list) and len(p) == 2]) if isinstance(s.get("dest_abbrev"), list) else str(s.get("dest_abbrev", "")),
         "T_NO_MORE_DEP": T["no_more_departures_label"],
         "NO_MORE_DEP_VAL": str(s["no_more_departures"]),
         "T_MINS": T["mins_label"],

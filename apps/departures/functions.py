@@ -572,6 +572,38 @@ def get_departure(num = "1", dataout = [["1", "^ Data error","","",""]]):
         return [["1", dicts.language[varinit.settings["language"]]["settings"]["no_data"],"***","",""]]
     return dataout
 
+def merge_departures(nums):
+    # Fetch each configured stop's departures and merge them into one list,
+    # sorted by departure time, for devices too narrow to show separate lists side by side.
+    combined = []
+    fallback_msg = None
+    for num in nums:
+        stn = varinit.settings["stations"].get(num)
+        if not stn: continue
+        if stn["siteid"] in ("00", "0", "000", "") or not stn["operator"]: continue
+        rows = get_departure(num=num)
+        if rows and rows[0][0] == "1":
+            fallback_msg = rows
+            continue
+        combined.extend(rows)
+    if not combined:
+        if fallback_msg: return fallback_msg
+        return [["1", dicts.language[varinit.settings["language"]]["display"]["no_more_departures"], "***", "", ""]]
+    if not varinit.settings["clocktime"]: combined = sort_by_minutes(combined)
+    else: combined = sort_by_hours(combined)
+    return combined[slice(varinit.settings["maxdest"])]
+
+def abbreviate_dest(text, max_px):
+    # Only shorten when the destination would otherwise be truncated; leaves short names untouched.
+    if strlen(text) <= max_px: return text
+    for pair in varinit.settings.get("dest_abbrev", []):
+        if not isinstance(pair, list) or len(pair) != 2: continue
+        long, short = pair
+        if long and long in text:
+            text = text.replace(long, short)
+            if strlen(text) <= max_px: return text
+    return text
+
 def reformat_data(trainlist):
     def top_screen_filter(tlist):
         try: tlist[1] = tlist[1][:varinit.settings["line_length"]]
@@ -821,7 +853,36 @@ def scroll_mode():
             rnd = random.randint(0, 10)
             varinit.shared["scroll_timer"] = time.monotonic() + rnd
             print("RND: ", rnd)
- 
+
+CLOCK_ROW_MARK = "__clock__"
+
+def clock_string():
+    t = time.localtime(varinit.currenttime)
+    def _z(n):
+        s = str(n)
+        return "0" + s if len(s) == 1 else s
+    hhmm = _z(t[3]) + ":" + _z(t[4])
+    if int(varinit.settings.get("clock_row_date", 0)):
+        datepart = _z(t[2]) + "." + _z(t[1]) + "." + _z(t[0] % 100)
+        return datepart + " * " + hhmm
+    if varinit.settings.get("clock_row_align", "left") == "center":
+        return "*** " + hhmm + " ***"
+    return hhmm
+
+def apply_clock_row(trainlist):
+    # Replaces a departure row with the current date/time, if enabled.
+    if not int(varinit.settings.get("show_clock_row", 0)): return trainlist
+    if not isinstance(trainlist, list) or not trainlist: return trainlist
+    if not isinstance(trainlist[0], list): return trainlist
+    n = max(1, int(varinit.settings.get("maxdest", 1)))
+    kept = trainlist[:max(0, n - 1)]
+    clock_row = ["0", "", clock_string(), "", CLOCK_ROW_MARK]
+    if varinit.settings.get("clock_row_position", "bottom") == "top":
+        kept.insert(0, clock_row)
+    else:
+        kept.append(clock_row)
+    return kept
+
 def list_mode(mini=False, half=False):
     mini = varinit.settings["mini"]
 
@@ -892,10 +953,15 @@ def list_mode(mini=False, half=False):
         else: _r = 1
     except: pass
     
-    for i in range(_r):
-        print("Fetching: ", i+1)
-        varinit.traindata[i+1] = reformat_data(get_departure(num = str(i+1)))
-        if not half or i+1 == _r: break
+    merge_list_mode = int(varinit.settings["multiple"]) and varinit.display.width <= 64 and not varinit.rotated
+    if merge_list_mode:
+        print("Fetching merged stops")
+        varinit.traindata[1] = apply_clock_row(reformat_data(merge_departures(("1", "2", "3"))))
+    else:
+        for i in range(_r):
+            print("Fetching: ", i+1)
+            varinit.traindata[i+1] = apply_clock_row(reformat_data(get_departure(num = str(i+1))))
+            if not half or i+1 == _r: break
         
     
     
@@ -936,9 +1002,17 @@ def list_mode(mini=False, half=False):
                 line_col = _max_lw + 6
             else:
                 line_col = 0
+
+            _xs_max_lw = 0
+            if xs_line_id and isinstance(trainlist, list):
+                for _a in trainlist:
+                    if isinstance(_a, list) and len(_a) > 1:
+                        _w = strlen(_a[1][:varinit.settings["line_length"]])
+                        if _w > _xs_max_lw: _xs_max_lw = _w
+
             for x, all in enumerate(trainlist):
-                
-                
+
+                is_clock_row = len(all) > 4 and all[4] == CLOCK_ROW_MARK
                 all[2] = all[2].split('(')[0].split(" via")[0]#.lower()
                 _strip_dest = varinit.settings.get("strip_dest", [])
                 if isinstance(_strip_dest, list):
@@ -955,6 +1029,11 @@ def list_mode(mini=False, half=False):
                 if len(all[3]) > 1:
                        mins_cut -= 1
 
+                if not varinit.settings["clocktime"]:
+                    _mins_ref_w = strlen("00")
+                    if strlen(all[3]) < _mins_ref_w:
+                        all[3] = (_mins_ref_w - strlen(all[3])) * "(" + all[3]
+
                 if_not_clocktime = varinit.settings["mins"] if all[3] \
                 and not varinit.settings["clocktime"] else ""
 
@@ -966,13 +1045,15 @@ def list_mode(mini=False, half=False):
                 if varinit.rotated or varinit.display.width <= 64:
                     _w = varinit.if_long if varinit.rotated else varinit.display.width
                     _max_px = _w - strlen(all[3])
-                    if not varinit.rotated and xs_line_id:
-                        _max_px -= strlen(all[1][:varinit.settings["line_length"]]) + 2
+                    if not varinit.rotated and xs_line_id and not is_clock_row:
+                        _max_px -= _xs_max_lw + 2
+                    all[2] = abbreviate_dest(all[2], _max_px)
                     while len(all[2]) > 0 and strlen(all[2]) > _max_px:
                         all[2] = all[2][:-1]
                 elif large_list:
                     _max_px = varinit.if_long - strlen(all[3]) - line_col
                     _font = fonts[varinit.currentfont]
+                    all[2] = abbreviate_dest(all[2], _max_px)
                     while len(all[2]) > 0 and sum(_font.get(c, _font['_'])[0] for c in all[2]) > max(0, _max_px):
                         all[2] = all[2][:-1]
                 elif not half:
@@ -980,6 +1061,7 @@ def list_mode(mini=False, half=False):
                     _max_px = varinit.if_long - strlen(all[3]) - _line_col_w - 2
                     _full_dest_w = strlen(all[2])
                     if not (_dest_scroll and _full_dest_w > max(0, _max_px)):
+                        all[2] = abbreviate_dest(all[2], _max_px)
                         while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
                             all[2] = all[2][:-1]
                 if half: 
@@ -1019,26 +1101,35 @@ def list_mode(mini=False, half=False):
         
                 min_color = "white" if varinit.settings.get("listcolor_time", 0) or varinit.rotated else "yellow"
                 lin_color = "yellow" if not varinit.settings["listcolor"] else "white"
+                clock_color = varinit.settings.get("clock_row_color", "white")
                 if varinit.rotated or varinit.display.width <= 64:
                     added_space = ""
                     line = ""
                     if not varinit.rotated and xs_line_id:
                         line = all[1][:varinit.settings["line_length"]]
-                        added_space = (strlen(line) + 2) * "("
+                        added_space = (_xs_max_lw + 2) * "("
                 elif mini:
                     added_space = varinit.settings["line_length"] * "(((("
                     if half: added_space = ""
                 else: added_space = varinit.settings["line_length"] * "(((((("
-                if not varinit.settings["line_length"]: 
+                if not varinit.settings["line_length"]:
                     added_space = ""
                     line = ""
 
-                
+                if is_clock_row:
+                    _clock_align = varinit.settings.get("clock_row_align", "left")
+                    _clock_avail = varinit.display.width if varinit.display.width <= 64 else varinit.if_long
+                    _clock_pad = max(0, _clock_avail - strlen(dest))
+                    if _clock_align == "center": _clock_pad = _clock_pad // 2
+                    elif _clock_align == "left": _clock_pad = 0
+                    added_space = _clock_pad * "("
+                    line = ""
+
                 if large_list:
                     _lpart = 100 + x
                     _dest_pad = line_col * "("
                     renderstring(multiple_offset + minsleft, _lpart, 0, 0, inv, sys_msg=min_color)
-                    renderstring(multiple_offset + _dest_pad + dest, _lpart, 0, 0, inv)
+                    renderstring(multiple_offset + _dest_pad + dest, _lpart, 0, 0, inv, sys_msg=(clock_color if is_clock_row else False))
                     if not half and not varinit.rotated: renderstring(multiple_offset + line, _lpart, 0, 0, inv, sys_msg=lin_color)
                     if x > 4: continue
                 else:
@@ -1068,7 +1159,7 @@ def list_mode(mini=False, half=False):
                         varinit.overlay_tg.hidden = False
                     else:
                         renderstring(multiple_offset + minsleft, 100+x, 0, 0, inv, mini=mini, sys_msg=min_color)
-                        renderstring(multiple_offset + added_space + dest, 100+x, 0, 0, inv, mini=mini)
+                        renderstring(multiple_offset + added_space + dest, 100+x, 0, 0, inv, mini=mini, sys_msg=(clock_color if is_clock_row else False))
                         if not half and not varinit.rotated and (varinit.display.width > 64 or xs_line_id):
                             renderstring(multiple_offset + line, 100+x, 0, 0, inv, mini=mini, sys_msg=lin_color)
                     if x > varinit.if_tall // 8 - 1: continue
