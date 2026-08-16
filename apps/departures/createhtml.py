@@ -472,8 +472,31 @@ def huvudsidan(request):
         functions.colors()
         functions.switch(_screen=False)
         return (200, {}, "")
-    elif "xs_line_id" in request.params: 
+    elif "xs_line_id" in request.params:
         varinit.settings["xs_line_id"] = 1 - int(varinit.settings.get("xs_line_id", 0))
+        functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "show_clock_row" in request.params:
+        varinit.settings["show_clock_row"] = 1 - int(varinit.settings.get("show_clock_row", 0))
+        functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "clock_row_date" in request.params:
+        varinit.settings["clock_row_date"] = 1 - int(varinit.settings.get("clock_row_date", 0))
+        functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "clock_row_position" in request.params:
+        v = request.params["clock_row_position"]
+        varinit.settings["clock_row_position"] = v if v in ("top", "bottom") else "bottom"
+        functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "clock_row_align" in request.params:
+        v = request.params["clock_row_align"]
+        varinit.settings["clock_row_align"] = v if v in ("left", "center", "right") else "left"
+        functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "clock_row_color" in request.params:
+        v = request.params["clock_row_color"]
+        varinit.settings["clock_row_color"] = v if v in ("white", "yellow", "red", "green", "blue") else "white"
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "dest_scroll" in request.params:
@@ -488,11 +511,28 @@ def huvudsidan(request):
     elif "strip_dest" in request.params:
         try:
             strip_dest = []
-            parts = request.params["strip_dest"].replace("%20", " ")
+            parts = request.params["strip_dest"]
+            for a in html_decode: parts = parts.replace(a, html_decode[a])
             for part in parts.split(","):
                 part = part.strip()
                 if part: strip_dest.append(part)
             varinit.settings["strip_dest"] = strip_dest
+            functions.switch(_screen=False)
+        except Exception as e:
+            print(e)
+        return (200, {}, "")
+    elif "dest_abbrev" in request.params:
+        try:
+            dest_abbrev = []
+            parts = request.params["dest_abbrev"]
+            for a in html_decode: parts = parts.replace(a, html_decode[a])
+            for part in parts.split(","):
+                part = part.strip()
+                if "=" in part:
+                    long, short = part.split("=", 1)
+                    long = long.strip()
+                    if long: dest_abbrev.append([long, short.strip()])
+            varinit.settings["dest_abbrev"] = dest_abbrev
             functions.switch(_screen=False)
         except Exception as e:
             print(e)
@@ -522,8 +562,7 @@ def huvudsidan(request):
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "mins" in request.params:
-        if request.params["mins"] == "": varinit.settings["mins"] = " min"
-        else: varinit.settings["mins"] = str(request.params["mins"])
+        varinit.settings["mins"] = str(request.params["mins"])
         for a in html_decode:
             varinit.settings["mins"] = varinit.settings["mins"].replace(a, html_decode[a])
         functions.switch(_screen=False)
