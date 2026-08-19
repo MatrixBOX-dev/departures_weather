@@ -1036,7 +1036,7 @@ def list_mode(mini=False, half=False):
                         all[3] = (_mins_ref_w - strlen(all[3])) * "(" + all[3]
 
                 if_not_clocktime = varinit.settings["mins"] if all[3] \
-                and not varinit.settings["clocktime"] else ""
+                and not varinit.settings["clocktime"] and not is_clock_row else ""
 
                 all[3] += if_not_clocktime
 
