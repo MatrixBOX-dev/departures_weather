@@ -664,13 +664,14 @@ def reformat_data(trainlist):
 
         return trainlist[1:]
     spacing = "" if varinit.if_long == 128 else "(("
+    long_buffer = "("*120 if varinit.if_long > 128 else ""
     if not len(trainlist):                                                                             
         cls(top)
         cls(bottom)
         return varinit.text[6]
     if trainlist[0][0] == "1": return trainlist[0][1] + "  " + trainlist[0][2] + "  " + trainlist[0][3]  
     elif int(varinit.settings["listmode"]): return trainlist
-    else: return "         ".join(["  ".join([a[1][:varinit.settings["line_length"]] + (spacing * 2), a[2] + (6 * spacing), a[3] + (varinit.settings["mins"] if not varinit.settings["clocktime"] else "") + (spacing * 10)]) for a in top_screen_filter(trainlist[0])])
+    else: return long_buffer + "         ".join(["  ".join([a[1][:varinit.settings["line_length"]] + (spacing * 2), a[2] + (6 * spacing), a[3] + (varinit.settings["mins"] if not varinit.settings["clocktime"] else "") + (spacing * 10)]) for a in top_screen_filter(trainlist[0])])
 
 def renderstring(_string, screen_partition = 0, min = 0, slow = 0, invertcolor = 0, shading=False, smallfont=False, sys_msg=False, shade=False, large=False, _cls=False, _refresh=False, ontop=False, block=False, logo=False, mini=False, start_x=0, clip_x=None, target_bmp=None, target_offs=None):
     
