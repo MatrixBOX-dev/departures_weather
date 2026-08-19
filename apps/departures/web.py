@@ -1,7 +1,7 @@
 css = ""
 try: from css import _css as css
 except: pass
-from dicts import language, flag as _flag_img, country_name
+from dicts import language, flag as _flag_img
 
 country_and_operators = {
   "se":[["sl","SL (Stockholm)"],["vt","VT (Västtrafik)"],["otraf","Östgötatrafiken"],["vastmanland","VL (Västmanlands län)"],["dt","DT (Dalatrafik)"],["jlt","JLT (Jönköpings län)"],["krono","KRONO (Kronobergs länstrafik)"],["ul","UL (Uppsala län)"],["klt","KLT (Kalmar länstrafik)"],["orebro","Länstrafiken Örebro"],["xt","X-Trafik (Gävleborg)"],["varm","Värmlandstrafik - Karlstadsbuss"],["skane","Skånetrafiken"],["norrbotten","Norrbotten"],["fe","Trafikverkets färjor"],["dintur","DinTur (Västernorrland)"],["sj","SJ (Trafikverket)"],["sormland","Sörmland (Endast tidtabell)"]],
@@ -35,136 +35,151 @@ def _opt(val, cur, label):
 
 def _chk(name, val, url, label):
     c = " checked" if int(val) else ""
-    return '<label class="sw"><input type="checkbox" id="' + name + '" data-u="' + url + '"' + c + '><span>' + label + '</span></label>'
+    return ('<div class="toggle-row"><label for="' + name + '" class="toggle-label">' + label + '</label>'
+            '<label class="switch"><input type="checkbox" id="' + name + '" data-u="' + url + '"' + c + '><span class="slider"></span></label></div>')
+
+
+def _rssi(functions):
+    try:
+        ai = functions.wifi.radio.ap_info
+        return ai.rssi if ai else -100
+    except Exception:
+        return -100
+
+
+def _sig_bars(rssi):
+    n = 5 if rssi > -45 else 4 if rssi > -55 else 3 if rssi > -65 else 2 if rssi > -75 else 1 if rssi > -85 else 0
+    bars = "".join('<i class="' + ("on" if i < n else "") + '"></i>' for i in range(5))
+    return '<span class="sig" id="sig" title="' + str(rssi) + ' dBm">' + bars + "</span>"
 
 
 PAGE_TPL = """<!DOCTYPE html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1" charset="UTF-8">
 <link href="data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAA/SURBVDhPY2RgYPgPxGQDsAFAAOGRCBgZGREGgDikAJgeJiifbDDwBuAMRPQwwaVmGITBqAHUykwQLjmAgQEA3oYYFR16cP8AAAAASUVORK5CYII=" rel="icon" type="image/x-icon"/>
-<title>{TITLE}</title><style>{CSS}@keyframes guide-pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,220,255,0)}60%{box-shadow:0 0 0 5px rgba(200,200,255,.3)}}</style></head><body>
-<div class="container">
-<div style="text-align:right"><a href="/exit" style="color:#ff4444;text-decoration:none;font-size:20px">&#x274C;</a></div>
-<div class="card" style="text-align:center">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem"><div id="network">{CONN_STATUS}</div><input type="checkbox" id="onoff" class="l" data-u="/?onoff=active" {ONOFF_CHK}></div>
-<div class="sh">{HEADER}</div>
-<div style="margin-top:.3rem;font-size:.7rem;color:#aaa">{VERSION_TEXT}</div></div>
-<div class="card"><small><b>{T_INFO}</b> {IP_DISPLAY}<br>{INSTR_TEXT}</small></div>
+<title>{TITLE}</title><style>{CSS}</style></head><body>
+<nav class="navbar">
+<a class="nav-x" href="/exit" title="Exit" style="margin-left:0;margin-right:4px">&#8592;</a>
+<span class="nav-title">{HEADER}</span>
+<div class="nav-spacer"></div>
+<div class="nav-info"><span id="clk"></span><span>{IP_DISPLAY}</span></div>
+{SIG_BARS}
+<button type="button" class="nav-led{LED_OFF_CLS}" id="ledbtn" onclick="fetch('/?onoff=active').then(function(){document.getElementById('ledbtn').classList.toggle('led-off')})" title="Turn display on/off">&#x1F4A1;</button>
+<a class="nav-x" href="/exit" title="Exit">&#x2715;</a>
+</nav>
+<div class="page">
 <form method="post" action="/">
-<div class="card"><div class="form-row"><div class="col">
-<label for="ssid"><a href="#" onclick="doScan();return false">&#128268;</a> {T_NETWORK}</label>
+<div class="card">
+<div class="section-title">{T_WIFI_LABEL}</div>
+<div class="form-row">
+<div class="col">
+<label for="ssid"><a href="#" onclick="doScan();return false" title="Scan">&#128268;</a> {T_WIFI_LABEL}</label>
 <select id="ssid" class="form-control" name="ssid" data-p="ssid" data-e="change" {NET_DIS}>{SSID_OPTIONS}</select>
-</div><div class="col"><label for="password">{T_PASSWORD}</label>
-<input type="text" id="password" class="form-control" name="password" placeholder="*******" data-p="password" data-e="blur" data-enc="1" {NET_DIS}>
-<div style="text-align:right;margin-top:.5rem">
-<button type="button" class="btn btn-outline-secondary btn-sm" id="connect_wifi" data-u="/?connect_wifi=true" data-net="1" {NET_DIS}>{T_CONNECT}</button>
-</div></div></div></div>
-<div class="card">
-<div class="form-row" style="margin-bottom:.5rem"><div class="col" style="flex:0 0 auto">
-<div style="display:flex;align-items:center;gap:.4rem">
-<div class="dropdown"><button type="button" class="dropbtn" id="opbtn" {OPBTN_PULSE}>{COUNTRY_FLAG} {OPERATOR} &#9660;</button>
-<div class="dropdown-content">{COMBINED_LIST}</div></div>
-<div id="screenbtns" style="{SCREEN_BTN_DISP}">{SCREEN_BUTTONS}</div>
 </div>
-</div><div class="col">
-<select id="newstation" class="form-control" name="newstation" data-p="newstation" data-e="change" {RESULT_DIS} {RESULT_STYLE} onchange="this.style.animation=''">{RESULTS}</select>
-</div></div>
-<div class="form-row" style="margin-bottom:.5rem"><div class="col">
-<input type="text" id="sstring" class="form-control" name="sstring" placeholder="{STATION_PH}" {SEARCH_DIS} {SSTRING_PULSE} onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}">
-</div><div class="col" style="flex:0 0 auto;display:flex;align-items:center">
-<button type="button" class="btn btn-outline-secondary btn-sm" id="searchbtn" onclick="doSearch()" {SEARCH_DIS}>{T_SEARCH}</button>
-</div></div></div>
+<div class="col">
+<label for="password">{T_PASSWORD}</label>
+<input type="text" id="password" class="form-control" name="password" placeholder="*******" data-p="password" data-e="blur" data-enc="1" {NET_DIS}>
+</div>
+</div>
+<button type="button" class="btn btn-outline-secondary btn-sm" id="connect_wifi" style="margin-top:10px" data-u="/?connect_wifi=true" {NET_DIS}>{T_CONNECT}</button>
+</div>
 <div class="card">
-<div class="grp"><div class="grp-title">&#9881; {SCROLL_LABEL} / {T_NO_DEPARTURES}</div>
-<div class="form-row">{SCROLL_SECTION}<div class="col">
-<label for="maxdest">{T_NO_DEPARTURES}</label>
-<select id="maxdest" name="maxdest" class="form-control" data-p="maxdest" data-e="change">{MAXDEST_OPTIONS}</select>
-</div></div></div>
-<div class="grp"><div class="grp-title">&#128336; {T_HIDE_DEPARTURES} / {DIRECTION_LABEL}</div>
-<div class="form-row"><div class="col">
-<label for="offset">{T_HIDE_DEPARTURES}</label>
-<select id="offset" name="offset" class="form-control" data-p="offset" data-e="change">{OFFSET_OPTIONS}</select>
-</div><div class="col">{DIRECTION_SECTION}</div></div></div>
-<div class="grp"><div class="grp-title">&#128651; {T_TRAFFIC_TYPES}</div>
-<div class="tt-col">
+<div class="section-title">{T_NETWORK_LABEL}</div>
+{MULTIPLE_SECTION}
+<div class="form-row" style="margin-top:12px">
+<div class="dropdown" id="opdd"><button type="button" class="dropbtn" id="opbtn" {OPBTN_PULSE} onclick="toggleDropdown(event)">{COUNTRY_FLAG} {OPERATOR} &#9660;</button>
+<div class="dropdown-content">{COMBINED_LIST}</div></div>
+<div id="screenbtns" style="{SCREEN_BTN_DISP}display:flex;align-items:center;gap:6px">
+<span style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Editing</span>
+{SCREEN_BUTTONS}
+</div>
+<div class="col" style="min-width:150px">
+<select id="newstation" class="form-control" name="newstation" data-p="newstation" data-e="change" {RESULT_DIS} {RESULT_STYLE} onchange="this.style.animation=''">{RESULTS}</select>
+</div>
+</div>
+<div class="form-row" style="margin-top:10px">
+<div class="col">
+<input type="text" id="sstring" class="form-control" name="sstring" placeholder="{STATION_PH}" {SEARCH_DIS} {SSTRING_PULSE} onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}">
+</div>
+<button type="button" class="btn" id="searchbtn" onclick="doSearch()" {SEARCH_DIS}>{T_SEARCH}</button>
+</div>
+</div>
+<div class="card">
+<div class="grp-title">{T_TRAFFIC_TYPES}</div>
+<div class="tt-grid">
 {METRO_SECTION}
 {BUS_SECTION}
 {TRAIN_CHK}
 {TRAM_SECTION}
 {SHIP_SECTION}
 </div>
-<div style="margin-top:.4rem">{SL_COLORS}{SL_BUS_OPTIONS}</div>
-</div></div>
+{SL_SECTION}
+</div>
 <div class="card">
 {LISTMODE_CHK}
 {CLOCKTIME_CHK}
-{MULTIPLE_SECTION}
 {DEVIATIONS_SECTION}
 {SLEEP_CHK}
 {BUTTON_MODE_CHK}
 {SHOW_STATION_CHK}
 </div>
-<div style="margin-bottom:.6rem">
-<button type="button" class="save-btn" data-u="/?save=true">&#128190; {T_SAVE}</button></div>
-<div class="card"><label for="user">{T_USER}</label>
-<input type="text" id="user" class="form-control" name="user" placeholder="{USER_PH}" data-p="user" data-e="change" data-enc="1"></div>
+<div class="card">
+<div class="grp">
+<div class="form-row">{SCROLL_SECTION}<div class="col">
+<label for="maxdest">{T_NO_DEPARTURES}</label>
+<select id="maxdest" name="maxdest" class="form-control" data-p="maxdest" data-e="change">{MAXDEST_OPTIONS}</select>
+</div></div></div>
+<div class="grp">
+<div class="form-row"><div class="col">
+<label for="offset">{T_HIDE_DEPARTURES}</label>
+<select id="offset" name="offset" class="form-control" data-p="offset" data-e="change">{OFFSET_OPTIONS}</select>
+</div><div class="col">{DIRECTION_SECTION}</div></div></div>
+</div>
 <div class="card"><details>
 <summary>&#9881; {T_ADVANCED}</summary>
-<div class="sh" style="margin:.75rem 0">{T_ADVANCED_SETTINGS}</div>
 <table>
-<tr><td><b>{T_TEMP}</b></td><td>{TEMP_VAL}&#176;C</td></tr>
-<tr><td><b>Uptime</b></td><td>{UPTIME_VAL} {T_MINUTES}</td></tr>
-
-<tr><td><b>{T_SYSTEM_LANGUAGE}</b></td><td>
-<div class="dropdown"><button class="dropbtn" disabled>{LANG}</button>
-<div class="dropdown-content">
-<a href="#" onclick="fetch('/?language=se');this.closest('.dropbtn').textContent='se';return false">Svenska</a>
-<a href="#" onclick="fetch('/?language=en');this.closest('.dropbtn').textContent='en';return false">English</a>
-</div></div></td></tr>
-<tr><td><b>{T_TONE}</b></td><td>
-<button style="background:#e09d00;color:#fff;border-color:#e09d00" type="button" data-u="/?color=0">{T_ORANGE}</button>
-<button style="background:#f5d105;color:#111;border-color:#f5d105" type="button" data-u="/?color=1">{T_YELLOW}</button>
-{WHITE_BTN}</td></tr>
-<tr><td><b>{T_LIST_COLORS}</b></td><td>{LISTCOLOR_CHK} {LISTCOLOR_TIME_CHK}</td></tr>
+<tr><td><b>{T_TONE}</b></td><td><div style="display:flex;gap:10px">{TONE_SWATCHES}</div></td></tr>
 {FONT_SIZE_ROW}
-{XS_LINE_ID_ROW}
 {CLOCK_ROW_HTML}
-<tr><td><b>Scroll dest</b></td><td>{DEST_SCROLL_CHK}</td></tr>
-<tr><td><b>Timer</b></td><td><button type="button" onclick="location.href='/?timer=set'">&#8987;</button></td></tr>
-<tr><td><b>{T_ROTATION}</b></td><td><button type="button" data-u="/?rotate=1">&#128260; 90&deg;</button></td></tr>
-<tr><td><b>{T_RT_INDICATOR}</b></td><td>{RT_INDICATOR_CHK}</td></tr>
+<tr><td><b>Timer</b></td><td><button type="button" class="btn btn-sm" onclick="location.href='/?timer=set'">&#8987; Configure</button></td></tr>
+<tr><td><b>{T_ROTATION}</b></td><td><button type="button" class="btn btn-sm" data-u="/?rotate=1">&#128260; 90&deg;</button></td></tr>
 <tr><td><b>{T_POWER}</b></td><td><input type="text" id="power" class="form-control" style="width:80px;display:inline" placeholder="{POWER_VAL}" data-p="power" data-e="blur"></td></tr>
-<tr><td><b>{T_LINE_LENGTH}</b></td><td><input type="text" id="line_length" class="form-control" style="width:80px;display:inline" placeholder="{LINE_LENGTH_VAL}" data-p="line_length" data-e="blur"></td></tr>
+<tr><td><b>{T_LINE_LENGTH}</b></td><td><input type="text" id="line_length" class="form-control" style="width:80px;display:inline" placeholder="{LINE_LENGTH_VAL}" data-p="line_length" data-e="blur"><br><small>{T_LINE_LENGTH_HELP}</small></td></tr>
 <tr><td><b>{T_SHOW_LINES}</b></td><td><input type="text" id="show_lines" class="form-control" style="width:160px;display:inline" placeholder="{SHOW_LINES_VAL}" data-p="show_lines" data-e="blur"></td></tr>
-<tr><td><b>Strip from dest</b></td><td><input type="text" id="strip_dest" class="form-control" style="width:160px;display:inline" placeholder="{STRIP_DEST_VAL}" data-p="strip_dest" data-e="blur" data-enc="1"></td></tr>
-<tr><td><b>Abbreviate dest</b></td><td><input type="text" id="dest_abbrev" class="form-control" style="width:160px;display:inline" placeholder="{DEST_ABBREV_VAL}" data-p="dest_abbrev" data-e="blur" data-enc="1"></td></tr>
+<tr><td><b>Strip from destination</b></td><td><input type="text" id="strip_dest" class="form-control" style="width:160px;display:inline" placeholder="{STRIP_DEST_VAL}" data-p="strip_dest" data-e="blur" data-enc="1"></td></tr>
+<tr><td><b>Destination abbreviations</b></td><td><input type="text" id="dest_abbrev" class="form-control" style="width:160px;display:inline" placeholder="{DEST_ABBREV_VAL}" data-p="dest_abbrev" data-e="blur" data-enc="1"></td></tr>
 <tr><td><b>{T_NO_MORE_DEP}</b></td><td><input type="text" id="no_more_departures" class="form-control" style="width:160px;display:inline" placeholder="{NO_MORE_DEP_VAL}" data-p="no_more_departures" data-e="blur" data-enc="1"></td></tr>
-<tr><td><b>{T_MINS}</b></td><td><input type="text" id="mins" class="form-control" style="width:100px;display:inline" placeholder="{MINS_VAL}" data-p="mins" data-e="blur" data-enc="1"></td></tr>
+<tr><td><b>{T_MINS}</b></td><td><input type="text" id="mins" class="form-control" style="width:160px;display:inline" placeholder="{MINS_VAL}" data-p="mins" data-e="blur" data-enc="1"></td></tr>
 </table>
+{RT_INDICATOR_CHK}
+{XS_LINE_ID_CHK}
+{LISTCOLOR_CHK}
+{LISTCOLOR_TIME_CHK}
+{DEST_SCROLL_CHK}
 {DNS_SECTION}
 </details></div>
+<button type="button" class="btn btn-full" data-u="/?save=true">&#128190; {T_SAVE}</button>
+<div style="text-align:center;margin-top:14px"><small>For support, visit <a href="http://t-skylt.se">T-Skylt.se</a></small></div>
 <div id="opsdata" style="display:none">{OPS_JSON}</div>
 <div id="stndata" style="display:none">{STN_JSON}</div>
 <script>
+function _ck(){var d=new Date(),h=d.getHours(),m=d.getMinutes();document.getElementById('clk').textContent=(h<10?'0':'')+h+':'+(m<10?'0':'')+m;}_ck();setInterval(_ck,15000);
 var OPS=JSON.parse(document.getElementById('opsdata').textContent);var STN=JSON.parse(document.getElementById('stndata').textContent);
-function pickScr(n){fetch('/?screen='+n);var d=STN[n];if(!d)return;document.querySelectorAll('.scr-btn').forEach(function(b){b.classList.toggle('act',b.textContent==String(n));});var co=d.co,op=d.op.toLowerCase();var el=document.querySelector('.dd-grid img[data-c="'+co+'"]');var f=el?el.outerHTML.replace(/dd-sel/g,'')+' ':'';var nm=d.op.toUpperCase();var ops=OPS[co]||[];for(var i=0;i<ops.length;i++){if(ops[i][0]===op){nm=ops[i][1];break;}}document.getElementById('opbtn').innerHTML=f+nm+' &#9660;';document.getElementById('sstring').placeholder=d.ms||'';var cb={METRO:d.M,BUS:d.B,TRAIN:d.T,TRAM:d.R,SHIP:d.S,r:d.r,g:d.g,b:d.b};for(var k in cb){var e=document.getElementById(k);if(e)e.checked=!!cb[k];}var isSL=op==='sl';var sc=document.getElementById('slcolors');if(sc)sc.style.display=isSL?'':'none';var sb=document.getElementById('slbusopts');if(sb)sb.style.display=isSL?'':'none';var ab=document.getElementById('all_buses2');if(ab)ab.checked=!d.bo;var nb=document.getElementById('night_buses2');if(nb)nb.checked=!!d.bo;var of2=document.getElementById('offset');if(of2)of2.value=d.of;var di=document.getElementById('direction');if(di)di.value=d.di;}
+function toggleDropdown(e){e.stopPropagation();document.getElementById('opdd').classList.toggle('open');}
+document.addEventListener('click',function(e){var dd=document.getElementById('opdd');if(dd&&!dd.contains(e.target))dd.classList.remove('open');});
+function pickScr(n){fetch('/?screen='+n);var d=STN[n];if(!d)return;document.querySelectorAll('.scr-btn').forEach(function(b){b.classList.toggle('act',b.textContent==String(n));});var co=d.co,op=d.op.toLowerCase();var el=document.querySelector('.dd-grid img[data-c="'+co+'"]');var f=el?el.outerHTML.replace(/dd-sel/g,'')+' ':'';var nm=d.op?d.op.toUpperCase():'OPERATOR';var ops=OPS[co]||[];for(var i=0;i<ops.length;i++){if(ops[i][0]===op){nm=ops[i][1];break;}}document.getElementById('opbtn').innerHTML=f+nm+' &#9660;';document.getElementById('sstring').placeholder=d.ms||'';var cb={METRO:d.M,BUS:d.B,TRAIN:d.T,TRAM:d.R,SHIP:d.S,r:d.r,g:d.g,b:d.b};for(var k in cb){var e=document.getElementById(k);if(e)e.checked=!!cb[k];}var sl=document.getElementById('slsection');if(sl)sl.style.display=op==='sl'?'':'none';var nb=document.getElementById('night_buses');if(nb)nb.checked=!!d.bo;var of2=document.getElementById('offset');if(of2)of2.value=d.of;var di=document.getElementById('direction');if(di)di.value=d.di;}
 function pickC(c){var d=document.getElementById('ddops');d.innerHTML='';var ops=OPS[c]||[];for(var i=0;i<ops.length;i++){var a=document.createElement('a');a.href='#';a.textContent=ops[i][1];(function(cc,code,name){a.onclick=function(e){e.preventDefault();chCO(cc,code,name);return false;};})(c,ops[i][0],ops[i][1]);d.appendChild(a);}document.querySelectorAll('.dd-grid img').forEach(function(im){im.classList.toggle('dd-sel',im.dataset.c===c);});}
-function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.querySelector('.dd-grid img[data-c="'+c+'"');var f='';if(el)f=el.outerHTML.replace(/dd-sel/g,'')+' ';document.getElementById('opbtn').innerHTML=f+n+' &#9660;';document.getElementById('opbtn').style.animation='';document.getElementById('sstring').style.animation='guide-pulse 2.5s ease-in-out infinite';var sc=document.getElementById('slcolors');if(sc)sc.style.display=o==='sl'?'':'none';var sb=document.getElementById('slbusopts');if(sb)sb.style.display=o==='sl'?'':'none';}
-function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.background='#2a1215';sel.style.borderColor='#dc3545';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
+function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.querySelector('.dd-grid img[data-c="'+c+'"');var f='';if(el)f=el.outerHTML.replace(/dd-sel/g,'')+' ';document.getElementById('opbtn').innerHTML=f+n+' &#9660;';document.getElementById('opbtn').style.animation='';document.getElementById('sstring').style.animation='guide-pulse 2.5s ease-in-out infinite';var sl=document.getElementById('slsection');if(sl)sl.style.display=o==='sl'?'':'none';document.getElementById('opdd').classList.remove('open');}
+function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.borderColor='#ff6060';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
 function doScan(){fetch('/checknet').then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('ssid');sel.innerHTML=h;sel.disabled=false;document.getElementById('password').disabled=false;document.getElementById('connect_wifi').disabled=false;}).catch(function(){});}
 
-var mc=document.getElementById('multiple');if(mc)mc.addEventListener('change',function(){var sb=document.getElementById('screenbtns');if(sb)sb.style.display=mc.checked?'':'none';});
-function setFont(v,el){fetch('/?font_size='+v);var bs=el.parentNode.querySelectorAll('button');bs.forEach(function(b){b.style.background='transparent';b.style.color='#aaa';});el.style.background='#e09d00';el.style.color='#111';}
+var mc=document.getElementById('multiple');if(mc)mc.addEventListener('change',function(){var sb=document.getElementById('screenbtns');if(sb)sb.style.visibility=mc.checked?'visible':'hidden';});
+function setFont(v,el){fetch('/?font_size='+v);var bs=el.parentNode.querySelectorAll('button');bs.forEach(function(b){b.classList.remove('on');});el.classList.add('on');}
+function setColor(v,el){fetch('/?color='+v);el.parentNode.querySelectorAll('.color-swatch-btn').forEach(function(b){b.classList.remove('active');});el.classList.add('active');}
 document.querySelectorAll('[data-u],[data-p]').forEach(function(el){
 el.addEventListener(el.dataset.e||'click',function(ev){
 var u=el.dataset.u;
 if(!u){var v=ev.target.value.replace(/#/g,'%23');if(el.dataset.enc)v=encodeURIComponent(v);u='/?'+el.dataset.p+'='+v;}
-var f=fetch(u,{method:'GET'});
-if(el.dataset.net){f.then(function(r){return r.json()}).then(function(d){
-var div=document.getElementById('network');
-if(d===true)div.innerHTML='{CONN_OK}';
-else if(d===false)div.innerHTML='{CONN_FAIL}';
-else div.innerText='Error';
-}).catch(function(){});}
+fetch(u,{method:'GET'});
 });});
 </script>
 </form></div></body></html>"""
@@ -195,7 +210,7 @@ _PARTS.append((PAGE_TPL[_tpl_last:], ""))
 
 
 def html():
-    import varinit, functions, microcontroller, time
+    import varinit, functions
     num = varinit.screen_selector
     s = varinit.settings
     stn = s["stations"][num]
@@ -203,45 +218,46 @@ def html():
     T = language[lg]["settings"]
     D = language[lg]["display"]
     connected = functions.wifi.radio.connected
-    op = stn["operator"].upper()
-    if not op: op = T["operator"]
     co = stn["country"].lower()
-    ip = str(functions.wifi.radio.ipv4_address) if connected else ""
-    uptime = round((time.monotonic() - varinit.starttime) / 60)
-    varinit.uptime = str(uptime)
+    op = stn["operator"].upper()
+    for _op_code, _op_label in country_and_operators.get(co, []):
+        if _op_code == stn["operator"].lower():
+            op = _op_label
+            break
+    if not op: op = T["operator"]
+    ip = str(functions.wifi.radio.ipv4_address) if connected else "OFFLINE"
     if_long = varinit.if_long
 
-    # version button
-    #vmsg = varinit.version_msg if varinit.version_msg else ("T-Skylt v. " + str(s["version"]))
-    #if varinit.new_version_available: vmsg = "&#10071; " + vmsg
-    vmsg = ""
-    update_dis = "" if varinit.new_version_available else "disabled"
-
-    # connection status
-    if connected:
-        conn = "<green_box><small>" + T["connected"] + "</small></green_box>"
-    else:
-        conn = "<red_box><small>" + T["not_connected"] + "</small></red_box>"
-    conn_ok = ("<green_box><small>" + T["connected"] + "</small></green_box>").replace("'", "\\'")
-    conn_fail = ("<red_box><small>" + T["not_connected"] + "</small></red_box>").replace("'", "\\'")
-
-    # ssid options
+    # ssid options (populated by a /checknet scan; always includes the current ssid)
     _p = ["<option value='", str(s["ssid"]), "' selected>", str(s["ssid"]), "</option>"]
-    if hasattr(varinit, 'netlist'):
+    if hasattr(varinit, "netlist"):
         for n in varinit.netlist:
             _ns = str(n)
-            _p.append("<option value='")
-            _p.append(_ns)
-            _p.append("'>")
-            _p.append(_ns)
-            _p.append("</option>")
+            _p.append("<option value='" + _ns + "'>" + _ns + "</option>")
     ssid_opt = "".join(_p)
 
-    # network disable
-    if connected and not (hasattr(varinit, 'checknet') and varinit.checknet):
-        net_dis = "disabled"
-    else:
-        net_dis = ""
+    # network fields disabled once connected, unless a scan is in progress
+    net_dis = "disabled" if connected and not (hasattr(varinit, "checknet") and varinit.checknet) else ""
+
+    # dns section (hidden unless the on-device /dns route has been hit). Closes
+    # the page's main form early and opens its own, isolated one, so this
+    # submit only posts ip/netmask/gateway/dns to /setdns, not every other
+    # setting on the page too.
+    dns_html = ""
+    if getattr(varinit, "dns", False):
+        dns_html = ''.join([
+            '</form>',
+            '<div class="section-title" style="margin-top:12px">DNS</div>',
+            '<form action="/setdns" method="POST"><table>',
+            '<tr><td><label>IP</label></td><td><input type="text" id="ip" class="form-control" name="ip" required></td></tr>',
+            '<tr><td><label>Netmask</label></td><td><input type="text" id="netmask" class="form-control" name="netmask" required></td></tr>',
+            '<tr><td><label>Gateway</label></td><td><input type="text" id="gateway" class="form-control" name="gateway" required></td></tr>',
+            '<tr><td><label>DNS (', T["not_required"], ')</label></td><td><input type="text" id="dns_input" class="form-control" name="dns"></td></tr>',
+            '</table>',
+            '<div class="action-row" style="margin-top:8px">',
+            '<button type="submit" class="btn btn-sm">', T["save"], '</button>',
+            '<button type="button" class="btn btn-sm btn-danger" onclick="location.href=\'/setdns?clear=true\'">', T["clear"], '</button>',
+            '</div></form>'])
 
     # country flag
     country_flag = _flag_img(co)
@@ -277,13 +293,13 @@ def html():
     screen_btns = ""
     screen_btn_disp = ""
     if not int(s["multiple"]):
-        screen_btn_disp = "display:none;"
+        screen_btn_disp = "visibility:hidden;"
     ns = 2 if if_long == 128 else 3
     _p = []
     for i in range(1, ns + 1):
         _si = str(i)
         _cls = "scr-btn act" if _si == str(num) else "scr-btn"
-        _p.append("<button class='" + _cls + "' type='button' onclick=\"pickScr(" + _si + ")\">"+_si+"</button>")
+        _p.append("<button class='" + _cls + "' type='button' title='Edit station " + _si + "' onclick=\"pickScr(" + _si + ")\">"+_si+"</button>")
     screen_btns = "".join(_p)
 
     # search disable
@@ -295,7 +311,7 @@ def html():
     result_style = ""
     if varinit.results:
         result_dis = ""
-        result_style = "style='background:#2a1215;border-color:#dc3545;animation:guide-pulse 2.5s ease-in-out infinite'"
+        result_style = "style='border-color:#ff6060;animation:guide-pulse 2.5s ease-in-out infinite'"
 
     # maxdest options
     _p = []
@@ -303,32 +319,30 @@ def html():
         _p.append(_opt(i, s["maxdest"], str(i)))
     maxdest_opt = "".join(_p)
 
-
     # metro section
-    metro_html = ""
-    hasMetro = op in ("SL", "HSL", "BE", "KB", "NO")
-    #if hasMetro:
     metro_html = _chk("METRO", stn["METRO"], "/?type=metro", T["subway"])
 
-    # SL line color buttons (always in DOM, visibility toggled by JS)
+    # SL line color filter chips + night-bus toggle, grouped in one show/hide block
     rc = " checked" if int(stn["red"]) else ""
     gc = " checked" if int(stn["green"]) else ""
     bc = " checked" if int(stn["blue"]) else ""
     sl_disp = "" if op == "SL" else "display:none;"
-    sl_colors = '<div id="slcolors" style="' + sl_disp + '"><input type="checkbox" class="btn-check" id="r" name="red" data-u="/?line=red"' + rc + '><label class="btn btn-danger" for="r"> </label> <input type="checkbox" class="btn-check" id="g" name="green" data-u="/?line=green"' + gc + '><label class="btn btn-success" for="g"> </label> <input type="checkbox" class="btn-check" id="b" name="blue" data-u="/?line=blue"' + bc + '><label class="btn btn-primary" for="b"> </label></div>'
+    night_bus_html = _chk("night_buses", stn["buses_option"], "/?buses_option=1", T["only_nightbuses"])
+    sl_section = ''.join(['<div id="slsection" style="', sl_disp, ';margin-top:10px">',
+        '<label class="control-label" style="margin-bottom:6px">Metro line filter</label>',
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">',
+        '<input type="checkbox" class="btn-check" id="r" name="red" data-u="/?line=red"', rc, '>',
+        '<label class="line-chip" for="r"><span class="dot" style="background:#dc2626"></span>Red</label>',
+        '<input type="checkbox" class="btn-check" id="g" name="green" data-u="/?line=green"', gc, '>',
+        '<label class="line-chip" for="g"><span class="dot" style="background:#16a34a"></span>Green</label>',
+        '<input type="checkbox" class="btn-check" id="b" name="blue" data-u="/?line=blue"', bc, '>',
+        '<label class="line-chip" for="b"><span class="dot" style="background:#2563eb"></span>Blue</label>',
+        '</div>', night_bus_html, '</div>'])
 
     # bus section
     bus_html = ""
     if op != "SJ":
         bus_html = _chk("BUS", stn["BUS"], "/?type=bus", T["buses"])
-
-    # SL bus options (always in DOM, visibility toggled by JS)
-    bopt_all = "" if int(stn["buses_option"]) else " checked"
-    bopt_night = " checked" if int(stn["buses_option"]) else ""
-    sl_bus_disp = "" if op == "SL" else "display:none;"
-    sl_bus_opts = ''.join(['<div id="slbusopts" style="', sl_bus_disp, '"><details><summary>&#x279C; <small>', T["more"], '</small></summary><small>',
-        '<div class="form-check"><input class="form-check-input" type="radio" name="buses_option" id="all_buses" value="option1" data-u="/?buses_option=0" data-e="click"', bopt_all, '><label class="form-check-label" for="all_buses">', T["all_buses"], '</label></div>',
-        '<div class="form-check"><input class="form-check-input" type="radio" name="buses_option" id="night_buses" value="option2" data-u="/?buses_option=1" data-e="click"', bopt_night, '><label class="form-check-label" for="night_buses">', T["only_nightbuses"], '</label></div></small></details></div>'])
 
     # train
     train_html = _chk("TRAIN", stn["TRAIN"], "/?type=train", T["trains"])
@@ -343,52 +357,28 @@ def html():
     if op != "SJ":
         ship_html = _chk("SHIP", stn["SHIP"], "/?type=ship", T["ships"])
 
-    # SL line color buttons (always in DOM, visibility toggled by JS)
-    rc = " checked" if int(stn["red"]) else ""
-    gc = " checked" if int(stn["green"]) else ""
-    bc = " checked" if int(stn["blue"]) else ""
-    sl_disp = "" if op == "SL" else "display:none;"
-    sl_colors = '<div id="slcolors" style="' + sl_disp + '"><input type="checkbox" class="btn-check" id="r" name="red" data-u="/?line=red"' + rc + '><label class="btn btn-danger" for="r"> </label> <input type="checkbox" class="btn-check" id="g" name="green" data-u="/?line=green"' + gc + '><label class="btn btn-success" for="g"> </label> <input type="checkbox" class="btn-check" id="b" name="blue" data-u="/?line=blue"' + bc + '><label class="btn btn-primary" for="b"> </label></div>'
-
-    # SL bus options (always in DOM, visibility toggled by JS)
-    bopt_all = "" if int(stn["buses_option"]) else " checked"
-    bopt_night = " checked" if int(stn["buses_option"]) else ""
-    sl_bus_disp = "" if op == "SL" else "display:none;"
-    sl_bus_opts = ''.join(['<div id="slbusopts" style="', sl_bus_disp, '"><details><summary>&#x279C; <small>', T["more"], '</small></summary><small>',
-        '<div class="form-check"><input class="form-check-input" type="radio" name="buses_option" id="all_buses2" value="option1" data-u="/?buses_option=0" data-e="click"', bopt_all, '><label class="form-check-label" for="all_buses2">', T["all_buses"], '</label></div>',
-        '<div class="form-check"><input class="form-check-input" type="radio" name="buses_option" id="night_buses2" value="option2" data-u="/?buses_option=1" data-e="click"', bopt_night, '><label class="form-check-label" for="night_buses2">', T["only_nightbuses"], '</label></div></small></details></div>'])
-
     # offset options
     _p = []
     for i in range(0, 31):
         _p.append(_opt(i, stn["offset"], str(i) + " min"))
     offset_opt = "".join(_p)
 
-    # direction (SL only)
-    dir_html = ""
-    #if op == "SL":
+    # direction
     dirs = [D["north_south"], D["north"], D["south"]]
-    _p = ['<label class="control-label" for="direction">', T["direction"], ':</label><select id="direction" name="direction" class="form-control" data-p="direction" data-e="change">']
+    _p = ['<label class="control-label" for="direction">', T["direction"], '</label><select id="direction" name="direction" class="form-control" data-p="direction" data-e="change">']
     for i in range(3):
         _p.append(_opt(i, stn["direction"], dirs[i]))
     _p.append("</select>")
     dir_html = "".join(_p)
 
-    # brightness options
-    bright_opt = ""
-    if if_long > 64:
-        bright_opt = "<option value='0' selected>Normal</option>"
-    else:
-        brl = [T["low"], T["middle"], T["high"]]
-        _p = []
-        for i in range(3):
-            _p.append(_opt(i, s["brightness"], brl[i]))
-        bright_opt = "".join(_p)
-
     # scroll section (128 only)
     scroll_html = ""
     if if_long == 128:
-        scroll_html = ''.join(['<div class="col"><label for="scroll">', T["scroll"], ':</label><select id="scroll" name="scroll" class="form-control" data-p="scroll" data-e="change">', _opt(0, s["scroll"], "Normal"), _opt(1, s["scroll"], T["low"]), '</select></div>'])
+        scroll_html = ''.join(['<div class="col"><label for="scroll">', T["scroll"], '</label><select id="scroll" name="scroll" class="form-control" data-p="scroll" data-e="change">', _opt(0, s["scroll"], "Normal"), _opt(1, s["scroll"], T["low"]), '</select></div>'])
+
+    # multiple (wide: side-by-side lists; XS: merged single sorted list) - shown
+    # first so the [1][2][3] screen picker below makes sense
+    mult_html = _chk("multiple", s["multiple"], "/?multiple=1", T["multiple"])
 
     # list mode
     listmode_html = ""
@@ -397,9 +387,6 @@ def html():
 
     # clocktime
     clock_html = _chk("clocktime", s["clocktime"], "/?clocktime=switch", T["clocktime"])
-
-    # multiple (wide: side-by-side lists; XS: merged single sorted list)
-    mult_html = _chk("multiple", s["multiple"], "/?multiple=1", T["multiple"])
 
     # deviations (SL only)
     devs_html = ""
@@ -417,29 +404,27 @@ def html():
     # show station
     show_stn_html = _chk("show_my_station", s["show_my_station"], "/?show_station=1", T["show_station"])
 
-    # white button (128 only)
-    white_btn = ""
+    # LED tone swatches (128-wide boards also get a white option)
+    _color_cur = s.get("color", 1)
+    def _swatch(value, color, title):
+        active = " active" if int(_color_cur) == value else ""
+        return ('<button type="button" class="color-swatch-btn' + active + '" style="background:' + color
+                + '" title="' + title + '" onclick="setColor(' + str(value) + ',this)"></button>')
+    tone_html = _swatch(0, "#e09d00", "Orange") + _swatch(1, "#f5d105", "Yellow")
     if if_long == 128:
-        white_btn = '<button style="background:#fff;border:1px solid #666;color:#111;padding:2px 8px;border-radius:6px;cursor:pointer" type="button" data-u="/?color=2">' + T["white"] + '</button>'
-
-    # listcolor
-    listcolor_html = _chk("LISTCOLOR", s["listcolor"], "/?listcolor=switch", T["list_colors_line"])
-    listcolor_time_html = _chk("LISTCOLOR_TIME", s.get("listcolor_time", 0), "/?listcolor_time=switch", T["list_colors_time"])
+        tone_html += _swatch(2, "#ffffff", "White")
 
     # font size segmented control (mini / small / large)
     _fs = "mini" if s["mini"] else ("large" if s.get("large_list", 0) else "small")
-    _act = "background:#e09d00;color:#111"
-    _inact = "background:transparent;color:#aaa"
-    _bs = 'border:none;cursor:pointer;font-size:.85rem;padding:3px 10px;'
     font_size_html = (
-        '<span style="display:inline-flex;border:1px solid #555;border-radius:5px;overflow:hidden">'
-        '<button type="button" onclick="setFont(\'mini\',this)" style="' + _bs + (_act if _fs == "mini" else _inact) + '">mini</button>'
-        '<button type="button" onclick="setFont(\'small\',this)" style="' + _bs + 'border-left:1px solid #555;border-right:1px solid #555;' + (_act if _fs == "small" else _inact) + '">small</button>'
-        '<button type="button" onclick="setFont(\'large\',this)" style="' + _bs + (_act if _fs == "large" else _inact) + '">large</button>'
+        '<span class="seg">'
+        '<button type="button" onclick="setFont(\'mini\',this)" class="' + ("on" if _fs == "mini" else "") + '">mini</button>'
+        '<button type="button" onclick="setFont(\'small\',this)" class="' + ("on" if _fs == "small" else "") + '">small</button>'
+        '<button type="button" onclick="setFont(\'large\',this)" class="' + ("on" if _fs == "large" else "") + '">large</button>'
         '</span>'
     )
     font_size_row = '<tr><td><b>' + T["font_mini"] + '</b></td><td>' + font_size_html + '</td></tr>' if if_long > 64 else ""
-    xs_line_id_row = '<tr><td><b>XS line ID</b></td><td>' + _chk("XS_LINE_ID", s.get("xs_line_id", 0), "/?xs_line_id=switch", "SHOW LINE ID") + '</td></tr>' if if_long <= 64 else ""
+    xs_line_id_chk = _chk("XS_LINE_ID", s.get("xs_line_id", 0), "/?xs_line_id=switch", "Show line ID") if if_long <= 64 else ""
     clock_row_html = (
         '<tr><td><b>Clock row</b></td><td>' + _chk("SHOW_CLOCK_ROW", s.get("show_clock_row", 0), "/?show_clock_row=switch", "Show date/time instead of a departure") + '</td></tr>'
         '<tr><td><b>Clock: show date</b></td><td>' + _chk("CLOCK_ROW_DATE", s.get("clock_row_date", 0), "/?clock_row_date=switch", "Include date") + '</td></tr>'
@@ -461,39 +446,36 @@ def html():
         + '</select></td></tr>'
     )
     # dest_scroll
-    dest_scroll_html = _chk("DEST_SCROLL", s.get("dest_scroll", 0), "/?dest_scroll=switch", "Scroll long names (experimental)")
+    dest_scroll_html = _chk("DEST_SCROLL", s.get("dest_scroll", 0), "/?dest_scroll=switch", "Scroll long destination names")
 
     # rt_indicator
     rt_indicator_html = _chk("RT_INDICATOR", s["rt_indicator"], "/?rt_indicator=switch", T["rt_indicator"])
+    listcolor_html = _chk("LISTCOLOR", s["listcolor"], "/?listcolor=switch", T["list_colors_line"])
+    listcolor_time_html = _chk("LISTCOLOR_TIME", s.get("listcolor_time", 0), "/?listcolor_time=switch", T["list_colors_time"])
 
-    # dns section
-    dns_html = ""
-    if varinit.dns:
-        dns_html = ''.join([
-            '<details><summary>&#x279C; &#127760; <small>DNS</small></summary></form>',
-            '<form action="/setdns" method="POST"><table>',
-            '<tr><td><label>IP:</label></td><td><input type="text" id="ip" name="ip" required></td></tr>',
-            '<tr><td><label>Netmask:</label></td><td><input type="text" id="netmask" name="netmask" required></td></tr>',
-            '<tr><td><label>Gateway:</label></td><td><input type="text" id="gateway" name="gateway" required></td></tr>',
-            '<tr><td><label>DNS (', T["not_required"], '):</label></td><td><input type="text" id="dns_input" name="dns"></td></tr>',
-            '<tr><td></td><td><input type="submit" value="', T["save"], '"> ',
-            "<button style='background-color:pink;border:1px solid black;color:black;padding:2px;text-align:center;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer' type='button' onclick=\"location.href='/setdns?clear=true'\">", T["clear"], '</button></td></tr>',
-            '</table></form></details>'])
-
-    # instructions text
-    instr = T["_instructions"] if connected else T["instructions"]
+    # navbar led toggle: on_off_counter == 0 means display currently off
+    led_off_cls = "" if int(varinit.on_off_counter) else " led-off"
+    sig_bars = _sig_bars(_rssi(functions))
 
     # build page using pre-split template (single pass, no scanning)
     _v = {
         "CSS": css, "TITLE": T["title"],
-        "HEADER": T["title"] + "",
-        "CONN_STATUS": conn,
-        "ONOFF_CHK": "checked" if int(varinit.on_off_counter) else "",
-        "VERSION_TEXT": vmsg, "UPDATE_DIS": update_dis,
-        "T_INFO": T["info"], "IP_DISPLAY": ip, "INSTR_TEXT": instr,
-        "T_NETWORK": T["network"], "SSID_OPTIONS": ssid_opt,
-        "NET_DIS": net_dis, "T_PASSWORD": T["password"],
-        "T_CONNECT": T["connect"], "COUNTRY_FLAG": country_flag,
+        "HEADER": T["title"],
+        "LED_OFF_CLS": led_off_cls,
+        "SIG_BARS": sig_bars,
+        "IP_DISPLAY": ip,
+        "T_WIFI_LABEL": T["network"],
+        "SSID_OPTIONS": ssid_opt,
+        "NET_DIS": net_dis,
+        "T_PASSWORD": T["password"],
+        "T_CONNECT": T["connect"],
+        "T_ROTATION": T["rotation"],
+        "T_POWER": T["power"],
+        "POWER_VAL": str(s["power"]),
+        "DNS_SECTION": dns_html,
+        "T_NETWORK_LABEL": T["search"],
+        "MULTIPLE_SECTION": mult_html,
+        "COUNTRY_FLAG": country_flag,
         "OPERATOR": op, "COMBINED_LIST": combined_list,
         "SCREEN_BUTTONS": screen_btns, "SCREEN_BTN_DISP": screen_btn_disp,
         "STATION_PH": station_ph, "SEARCH_DIS": search_dis,
@@ -504,49 +486,30 @@ def html():
         "RESULT_STYLE": result_style,
         "T_NO_DEPARTURES": T["no_departures"],
         "MAXDEST_OPTIONS": maxdest_opt,
-        "METRO_SECTION": metro_html, "SL_COLORS": sl_colors,
-        "BUS_SECTION": bus_html, "SL_BUS_OPTIONS": sl_bus_opts,
+        "METRO_SECTION": metro_html, "SL_SECTION": sl_section,
+        "BUS_SECTION": bus_html,
         "TRAIN_CHK": train_html, "TRAM_SECTION": tram_html,
         "SHIP_SECTION": ship_html,
         "T_HIDE_DEPARTURES": T["hide_departures"],
         "OFFSET_OPTIONS": offset_opt,
         "DIRECTION_SECTION": dir_html,
-        "T_BRIGHTNESS": T["brightness"],
-        "BRIGHTNESS_OPTIONS": bright_opt,
         "SCROLL_SECTION": scroll_html,
-        "SCROLL_LABEL": T["scroll"],
-        "DIRECTION_LABEL": T["direction"],
         "T_TRAFFIC_TYPES": T["traffic_types"],
         "LISTMODE_CHK": listmode_html, "CLOCKTIME_CHK": clock_html,
-        "MULTIPLE_SECTION": mult_html,
         "DEVIATIONS_SECTION": devs_html,
         "SLEEP_CHK": sleep_html, "BUTTON_MODE_CHK": button_mode_html, "SHOW_STATION_CHK": show_stn_html,
-        "T_SAVE": T["save"], "T_USER": T["user"],
-        "USER_PH": str(s["user"]),
+        "T_SAVE": T["save"],
         "T_ADVANCED": T["advanced"],
-        "T_ADVANCED_SETTINGS": T["advanced_settings"],
-        "T_TEMP": T["temp"],
-        "TEMP_VAL": str(round(microcontroller.cpu.temperature)),
-        "UPTIME_VAL": str(uptime), "T_MINUTES": T["minutes"],
-        "T_ANGLE": T["angle"], "T_ROTATION": T["rotation"],
-        "T_WIDTH": T["width"],
-        "T_SYSTEM_LANGUAGE": T["system_language"], "LANG": lg,
-        "T_TONE": T["tone"], "T_ORANGE": T["orange"],
-        "T_YELLOW": T["yellow"], "WHITE_BTN": white_btn,
-        "T_LIST_COLORS": T["list_colors"],
+        "T_TONE": T["tone"], "TONE_SWATCHES": tone_html,
+        "FONT_SIZE_ROW": font_size_row,
+        "XS_LINE_ID_CHK": xs_line_id_chk,
+        "DEST_SCROLL_CHK": dest_scroll_html,
+        "RT_INDICATOR_CHK": rt_indicator_html,
         "LISTCOLOR_CHK": listcolor_html,
         "LISTCOLOR_TIME_CHK": listcolor_time_html,
-        "FONT_SIZE_ROW": font_size_row,
-        "XS_LINE_ID_ROW": xs_line_id_row,
         "CLOCK_ROW_HTML": clock_row_html,
-        "DEST_SCROLL_CHK": dest_scroll_html,
-        "DNS_SECTION": dns_html,
-        "T_ROTATION": T.get("rotation", "Rotation"),
-        "RT_INDICATOR_CHK": rt_indicator_html,
-        "T_RT_INDICATOR": T["rt_indicator"],
-        "T_POWER": T["power"],
-        "POWER_VAL": str(s["power"]),
         "T_LINE_LENGTH": T["line_length"],
+        "T_LINE_LENGTH_HELP": "Most line numbers are 1-2 characters, so this often looks the same until a line uses a longer code.",
         "LINE_LENGTH_VAL": str(s["line_length"]),
         "T_SHOW_LINES": T["show_lines"],
         "SHOW_LINES_VAL": ",".join(s["show_lines"]) if isinstance(s["show_lines"], list) else str(s["show_lines"]),
@@ -556,7 +519,6 @@ def html():
         "NO_MORE_DEP_VAL": str(s["no_more_departures"]),
         "T_MINS": T["mins_label"],
         "MINS_VAL": str(s["mins"]),
-        "CONN_OK": conn_ok, "CONN_FAIL": conn_fail,
         "OPS_JSON": ops_json, "STN_JSON": stn_json,
     }
     _out = []
@@ -567,80 +529,27 @@ def html():
 
 
 def timer(_language, timer):
-  for i in timer:
-    try: timer[i][1]
-    except: timer[i] = ["00:00","00:00"]
-
-  return """<!DOCTYPE html><html>
-<meta name="viewport" content="width=device-width,initial-scale=1" charset="UTF-8">
-<title>Timer</title>
-<style>""" + css + """</style>
-<body><div class="container"><div class="header">
-<div class="form-group">
-<hr>
-<div class="p-1 mb-0 bg-warning text-dark font-weight-bold">""" + language[_language]["settings"]["timer_title"] + """</div>
-<hr>
-
-<form action="?set_timer=true" method="GET">
-
-<b>""" + language[_language]["settings"]["monday"] + """</b>
-<div><input type="time" id="mondayS" value=""" + timer["Monday"][0] + """> - <input type="time" id="mondayE" value=""" + timer["Monday"][1] + """></div>
-<script>
-var ms=document.getElementById("mondayS"),me=document.getElementById("mondayE");
-function mSend(){if(ms.value&&me.value)fetch('/?set_timer=Monday&start='+encodeURIComponent(ms.value+'to='+me.value),{method:'GET'})}
-ms.addEventListener("change",mSend);me.addEventListener("change",mSend);
-</script>
-
-<b>""" + language[_language]["settings"]["tuesday"] + """</b>
-<div><input type="time" id="tuesdayS" value=""" + timer["Tuesday"][0] + """> - <input type="time" id="tuesdayE" value=""" + timer["Tuesday"][1] + """></div>
-<script>
-var tus=document.getElementById("tuesdayS"),tue=document.getElementById("tuesdayE");
-function tuSend(){if(tus.value&&tue.value)fetch('/?set_timer=Tuesday&start='+encodeURIComponent(tus.value+'to='+tue.value),{method:'GET'})}
-tus.addEventListener("change",tuSend);tue.addEventListener("change",tuSend);
-</script>
-
-<b>""" + language[_language]["settings"]["wednesday"] + """</b>
-<div><input type="time" id="wednesdayS" value=""" + timer["Wednesday"][0] + """> - <input type="time" id="wednesdayE" value=""" + timer["Wednesday"][1] + """></div>
-<script>
-var ws=document.getElementById("wednesdayS"),we=document.getElementById("wednesdayE");
-function wSend(){if(ws.value&&we.value)fetch('/?set_timer=Wednesday&start='+encodeURIComponent(ws.value+'to='+we.value),{method:'GET'})}
-ws.addEventListener("change",wSend);we.addEventListener("change",wSend);
-</script>
-
-<b>""" + language[_language]["settings"]["thursday"] + """</b>
-<div><input type="time" id="thursdayS" value=""" + timer["Thursday"][0] + """> - <input type="time" id="thursdayE" value=""" + timer["Thursday"][1] + """></div>
-<script>
-var ths=document.getElementById("thursdayS"),the_=document.getElementById("thursdayE");
-function thSend(){if(ths.value&&the_.value)fetch('/?set_timer=Thursday&start='+encodeURIComponent(ths.value+'to='+the_.value),{method:'GET'})}
-ths.addEventListener("change",thSend);the_.addEventListener("change",thSend);
-</script>
-
-<b>""" + language[_language]["settings"]["friday"] + """</b>
-<div><input type="time" id="fridayS" value=""" + timer["Friday"][0] + """> - <input type="time" id="fridayE" value=""" + timer["Friday"][1] + """></div>
-<script>
-var fs=document.getElementById("fridayS"),fe=document.getElementById("fridayE");
-function fSend(){if(fs.value&&fe.value)fetch('/?set_timer=Friday&start='+encodeURIComponent(fs.value+'to='+fe.value),{method:'GET'})}
-fs.addEventListener("change",fSend);fe.addEventListener("change",fSend);
-</script>
-
-<b>""" + language[_language]["settings"]["saturday"] + """</b>
-<div><input type="time" id="saturdayS" value=""" + timer["Saturday"][0] + """> - <input type="time" id="saturdayE" value=""" + timer["Saturday"][1] + """></div>
-<script>
-var sas=document.getElementById("saturdayS"),sae=document.getElementById("saturdayE");
-function saSend(){if(sas.value&&sae.value)fetch('/?set_timer=Saturday&start='+encodeURIComponent(sas.value+'to='+sae.value),{method:'GET'})}
-sas.addEventListener("change",saSend);sae.addEventListener("change",saSend);
-</script>
-
-<b>""" + language[_language]["settings"]["sunday"] + """</b>
-<div><input type="time" id="sundayS" value=""" + timer["Sunday"][0] + """> - <input type="time" id="sundayE" value=""" + timer["Sunday"][1] + """></div>
-<script>
-var sus=document.getElementById("sundayS"),sue=document.getElementById("sundayE");
-function suSend(){if(sus.value&&sue.value)fetch('/?set_timer=Sunday&start='+encodeURIComponent(sus.value+'to='+sue.value),{method:'GET'})}
-sus.addEventListener("change",suSend);sue.addEventListener("change",suSend);
-</script>
-
-<button type="button" onclick="location.href='/'">""" + language[_language]["settings"]["return"] + """</button>
-<button style="background-color:pink;border:1px solid black;color:black;padding:2px;text-align:center;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer" type="button" onclick="location.href='/?cleartimer=true'">""" + language[_language]["settings"]["clear"] + """</button>
-
-</form>
-</div></div></body></html>"""
+    for i in timer:
+        try: timer[i][1]
+        except: timer[i] = ["00:00", "00:00"]
+    T = language[_language]["settings"]
+    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    rows = ""
+    for day in days:
+        label = T[day.lower()]
+        did = day.lower()
+        rows += ('<div class="form-row" style="align-items:center;margin-bottom:8px">'
+                 '<div class="col" style="flex:0 0 90px;text-transform:capitalize;font-size:.85rem">' + label + '</div>'
+                 '<div class="col"><input type="time" id="' + did + 'S" class="form-control" value="' + timer[day][0] + '"></div>'
+                 '<div class="col"><input type="time" id="' + did + 'E" class="form-control" value="' + timer[day][1] + '"></div>'
+                 '</div>'
+                 '<script>(function(){var s=document.getElementById("' + did + 'S"),e=document.getElementById("' + did + 'E");'
+                 'function send(){if(s.value&&e.value)fetch("/?set_timer=' + day + '&start="+encodeURIComponent(s.value+"to="+e.value),{method:"GET"})}'
+                 's.addEventListener("change",send);e.addEventListener("change",send);})()</script>')
+    body = ('<div class="card"><div class="section-title">' + T["timer_title"] + '</div>' + rows
+            + '<button type="button" class="btn btn-full btn-ghost" onclick="location.href=\'/\'">' + T["return"] + '</button>'
+            + '<button type="button" class="btn btn-full btn-danger" onclick="location.href=\'/?cleartimer=true\'">' + T["clear"] + '</button></div>')
+    return ('<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1" charset="UTF-8">'
+            '<title>' + T["timer_title"] + '</title><style>' + css + '</style></head>'
+            '<body><nav class="navbar"><a class="nav-x" href="/" title="Back" style="margin-left:0">&#8592;</a>'
+            '<span class="nav-title">' + T["timer_title"] + '</span></nav><div class="page">' + body + '</div></body></html>')
