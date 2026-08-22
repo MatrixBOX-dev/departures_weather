@@ -20,6 +20,11 @@ def strlen(_string):
     if isinstance(_string, str): _string = _string.lower()
     return sum(fonts[varinit.currentfont][c][0] for c in _string)
 
+def logo_char():
+    # Falls back to "%" for font files predating the "Ⓜ" logo glyph, where
+    # "%" still holds the logo bitmap instead of an actual percent sign.
+    return "Ⓜ" if "Ⓜ" in fonts[0] and "Ⓜ" in fonts[1] else "%"
+
 def temperature_check():
     if round(microcontroller.cpu.temperature) > varinit.temperature_threshold: 
         print("Temp-warning: ", round(microcontroller.cpu.temperature))
@@ -139,11 +144,12 @@ def load_text():
     
     http = "" if int(varinit.settings["long"]) == -1 else "http://"
     if not varinit.settings["no_more_departures"]: varinit.settings["no_more_departures"] = dicts.language[settings["language"]]["display"]["no_more_departures"]
-    return ["((% "+dicts.language[settings["language"]]["display"]["sign"],#+" v" + settings["version"] + "     ",                   
+    _logo = "((" + logo_char() + " "
+    return [_logo+dicts.language[settings["language"]]["display"]["sign"],#+" v" + settings["version"] + "     ",
             "WIFI: " + settings["ssid"] + "      ",
             dicts.language[settings["language"]]["display"]["your_settings"],
             http,
-            "((% ",
+            _logo,
             "",
             varinit.settings["no_more_departures"] + " "*200,
             dicts.language[settings["language"]]["display"]["check_connection"] + ": http://",
@@ -1184,7 +1190,7 @@ def list_splash(_settings=False):
     else:
         if int(varinit.settings["stations"]["1"]["offset"]):
             sysprint(str(dicts.language[settings["language"]]["display"]["hiding"]) + str(varinit.settings["stations"]["1"]["offset"]) + varinit.settings["mins"], 102, _refresh=False)
-    sysprint("%"+str(varinit.settings["stations"]["1"]["mystation"]), 100, _refresh=False)
+    sysprint(logo_char()+str(varinit.settings["stations"]["1"]["mystation"]), 100, _refresh=False)
     sysprint(varinit.text[5], 101, _refresh=True)
 
 def update_screen():
