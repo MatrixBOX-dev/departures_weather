@@ -20,10 +20,7 @@ def strlen(_string):
     if isinstance(_string, str): _string = _string.lower()
     return sum(fonts[varinit.currentfont][c][0] for c in _string)
 
-def logo_char():
-    # Falls back to "%" for font files predating the "Ⓜ" logo glyph, where
-    # "%" still holds the logo bitmap instead of an actual percent sign.
-    return "Ⓜ" if "Ⓜ" in fonts[0] and "Ⓜ" in fonts[1] else "%"
+LOGO_CHAR = "Ⓜ"
 
 def temperature_check():
     if round(microcontroller.cpu.temperature) > varinit.temperature_threshold: 
@@ -144,7 +141,7 @@ def load_text():
     
     http = "" if int(varinit.settings["long"]) == -1 else "http://"
     if not varinit.settings["no_more_departures"]: varinit.settings["no_more_departures"] = dicts.language[settings["language"]]["display"]["no_more_departures"]
-    _logo = "((" + logo_char() + " "
+    _logo = "((" + LOGO_CHAR + " "
     return [_logo+dicts.language[settings["language"]]["display"]["sign"],#+" v" + settings["version"] + "     ",
             "WIFI: " + settings["ssid"] + "      ",
             dicts.language[settings["language"]]["display"]["your_settings"],
@@ -741,11 +738,15 @@ def renderstring(_string, screen_partition = 0, min = 0, slow = 0, invertcolor =
     
     
     for character in _string:
-        if mini: 
+        if mini:
             character = character.lower()
             varinit.currentfont = 2
             font = fonts[varinit.currentfont]
-        
+
+        # LOGO_CHAR is only defined in fonts updated to carry the logo glyph;
+        # older font files (or a font not yet updated) still hold it under
+        # "%", so fall back per-character against whichever font renders it.
+        if character == LOGO_CHAR and LOGO_CHAR not in font: character = "%"
         if not character in font: character = "_"
         
         for width in range(font[character][0]):
@@ -1199,7 +1200,7 @@ def list_splash(_settings=False):
     else:
         if int(varinit.settings["stations"]["1"]["offset"]):
             sysprint(str(dicts.language[settings["language"]]["display"]["hiding"]) + str(varinit.settings["stations"]["1"]["offset"]) + varinit.settings["mins"], 102, _refresh=False)
-    sysprint(logo_char()+str(varinit.settings["stations"]["1"]["mystation"]), 100, _refresh=False)
+    sysprint(LOGO_CHAR+str(varinit.settings["stations"]["1"]["mystation"]), 100, _refresh=False)
     sysprint(varinit.text[5], 101, _refresh=True)
 
 def update_screen():
