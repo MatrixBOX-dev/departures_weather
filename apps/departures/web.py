@@ -152,7 +152,7 @@ PAGE_TPL = """<!DOCTYPE html>
 </table>
 {RT_INDICATOR_CHK}
 {XS_LINE_ID_CHK}
-{MULTI_LINE_ID_CHK}
+{MULTI_STATION_LINE_ID_CHK}
 {LISTCOLOR_CHK}
 {LISTCOLOR_TIME_CHK}
 {DEST_SCROLL_CHK}
@@ -446,7 +446,7 @@ def html():
         + _opt("blue", s.get("clock_row_color", "white"), "Blue")
         + '</select></td></tr>'
     )
-    multi_line_id_chk = _chk("MULTI_LINE_ID", s.get("multi_line_id", 0), "/?multi_line_id=switch", "Show line ID in multi-line mode") if if_long > 64 else ""
+    multi_station_line_id_chk = _chk("MULTI_STATION_LINE_ID", s.get("multi_station_line_id", 0), "/?multi_station_line_id=switch", "Show line ID in multi-line list mode") if if_long > 64 else ""
     # dest_scroll
     dest_scroll_html = _chk("DEST_SCROLL", s.get("dest_scroll", 0), "/?dest_scroll=switch", "Scroll long destination names")
 
@@ -510,7 +510,7 @@ def html():
         "LISTCOLOR_CHK": listcolor_html,
         "LISTCOLOR_TIME_CHK": listcolor_time_html,
         "CLOCK_ROW_HTML": clock_row_html,
-        "MULTI_LINE_ID_CHK": multi_line_id_chk,
+        "MULTI_STATION_LINE_ID_CHK": multi_station_line_id_chk,
         "T_LINE_LENGTH": T["line_length"],
         "T_LINE_LENGTH_HELP": "Most line numbers are 1-2 characters, so this often looks the same until a line uses a longer code.",
         "LINE_LENGTH_VAL": str(s["line_length"]),

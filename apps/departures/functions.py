@@ -913,10 +913,10 @@ def list_mode(mini=False, half=False):
     if varinit.if_long > 128: version_delay(slowdown=1)
     large_list = not mini and not half and not varinit.rotated and int(varinit.settings.get("large_list", 0))
     xs_line_id = varinit.display.width <= 64 and not varinit.rotated and int(varinit.settings.get("xs_line_id", 0))
-    multi_line_id = half and not varinit.rotated and varinit.display.width > 64 \
-                    and int(varinit.settings.get("multi_line_id", 0)) and int(varinit.settings["line_length"])
+    multi_station_line_id = half and not varinit.rotated and varinit.display.width > 64 \
+                    and int(varinit.settings.get("multi_station_line_id", 0)) and int(varinit.settings["line_length"])
     _show_line = not varinit.rotated and (varinit.display.width > 64 or xs_line_id) \
-                 and (not half or multi_line_id)
+                 and (not half or multi_station_line_id)
     varinit.currentfont = 1
     if mini: varinit.currentfont = 2
     elif large_list: varinit.currentfont = 0
@@ -1005,7 +1005,7 @@ def list_mode(mini=False, half=False):
                 #    return time.monotonic()
                 #if not half: return time.monotonic() - varinit.updatedelay + 2
         
-            if (large_list or multi_line_id) and isinstance(trainlist, list):
+            if (large_list or multi_station_line_id) and isinstance(trainlist, list):
                 _max_lw = 0
                 for _a in trainlist:
                     if isinstance(_a, list) and len(_a) > 1:
@@ -1086,7 +1086,7 @@ def list_mode(mini=False, half=False):
                         _max_px = 64 - strlen(all[3]) - 1
                         while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
                             all[2] = all[2][:-1]
-                    elif multi_line_id:
+                    elif multi_station_line_id:
                         _max_px = 64 - strlen(all[3]) - line_col - 1
                         while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
                             all[2] = all[2][:-1]
@@ -1136,7 +1136,7 @@ def list_mode(mini=False, half=False):
                         added_space = (_xs_max_lw + 2) * "("
                 elif mini:
                     added_space = varinit.settings["line_length"] * "(((("
-                    if half: added_space = line_col * "(" if multi_line_id else ""
+                    if half: added_space = line_col * "(" if multi_station_line_id else ""
                 else: added_space = varinit.settings["line_length"] * "(((((("
                 if not varinit.settings["line_length"]:
                     added_space = ""

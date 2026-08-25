@@ -499,8 +499,8 @@ def huvudsidan(request):
         varinit.settings["clock_row_color"] = v if v in ("white", "yellow", "red", "green", "blue") else "white"
         functions.switch(_screen=False)
         return (200, {}, "")
-    elif "multi_line_id" in request.params:
-        varinit.settings["multi_line_id"] = 1 - int(varinit.settings.get("multi_line_id", 0))
+    elif "multi_station_line_id" in request.params:
+        varinit.settings["multi_station_line_id"] = 1 - int(varinit.settings.get("multi_station_line_id", 0))
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "dest_scroll" in request.params:
