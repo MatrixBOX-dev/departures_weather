@@ -339,7 +339,7 @@ def huvudsidan(request):
         except: pass
         print("New: ------ ", request.params["newstation"])
         functions.cls(topbottom), functions.cls(top), functions.cls(bottom)
-        functions.sysprint("% "+ varinit.settings["stations"][num]["mystation"],0, _refresh=True, ontop=True)
+        functions.sysprint(functions.logo_char() + varinit.settings["stations"][num]["mystation"],0, _refresh=True, ontop=True)
         try: varinit.settings["stations"][num]["siteid"] = request.params["newstation"]
         except: pass
         functions.reset_scroll(_delay=1)
