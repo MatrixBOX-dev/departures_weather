@@ -219,7 +219,8 @@ def html():
     D = language[lg]["display"]
     connected = functions.wifi.radio.connected
     co = stn["country"].lower()
-    op = stn["operator"].upper()
+    op_code = stn["operator"].upper()
+    op = op_code
     for _op_code, _op_label in country_and_operators.get(co, []):
         if _op_code == stn["operator"].lower():
             op = _op_label
@@ -326,7 +327,7 @@ def html():
     rc = " checked" if int(stn["red"]) else ""
     gc = " checked" if int(stn["green"]) else ""
     bc = " checked" if int(stn["blue"]) else ""
-    sl_disp = "" if op == "SL" else "display:none;"
+    sl_disp = "" if op_code == "SL" else "display:none;"
     night_bus_html = _chk("night_buses", stn["buses_option"], "/?buses_option=1", T["only_nightbuses"])
     sl_section = ''.join(['<div id="slsection" style="', sl_disp, ';margin-top:10px">',
         '<label class="control-label" style="margin-bottom:6px">Metro line filter</label>',
@@ -341,7 +342,7 @@ def html():
 
     # bus section
     bus_html = ""
-    if op != "SJ":
+    if op_code != "SJ":
         bus_html = _chk("BUS", stn["BUS"], "/?type=bus", T["buses"])
 
     # train
@@ -349,12 +350,12 @@ def html():
 
     # tram
     tram_html = ""
-    if op != "SJ":
+    if op_code != "SJ":
         tram_html = _chk("TRAM", stn["TRAM"], "/?type=tram", T["trams"])
 
     # ship
     ship_html = ""
-    if op != "SJ":
+    if op_code != "SJ":
         ship_html = _chk("SHIP", stn["SHIP"], "/?type=ship", T["ships"])
 
     # offset options
@@ -390,7 +391,7 @@ def html():
 
     # deviations (SL only)
     devs_html = ""
-    if op == "SL":
+    if op_code == "SL":
         devs_html = _chk("show_msgs", s["show_msgs"], "/?show_msgs=1", T["t_info"])
 
     # sleep
