@@ -169,21 +169,6 @@ def colors():
         varinit.overlay_palette[2] = varinit.palette[2]
     except: pass
 
-_def get_deviations():
-    if not len(varinit.deviations_list):
-        data = fetch_data(host="data.t-skylt.se", port=89, args="/v1/messages?future=false&transport_mode=METRO&transport_mode=TRAM&transport_mode=TRAIN&transport_mode=SHIP")
-        data = json.loads(data)
-        for all in data:
-            importance = all["priority"]["importance_level"] * all["priority"]["influence_level"] * all["priority"]["urgency_level"]
-            if importance > 20:
-                try: 
-                    if "Närtrafiken" in all["scope"]["lines"][0]["name"]: continue
-                    if not all["scope"]["lines"][0]["name"] + ": " + all["message_variants"][0]["header"] in varinit.deviations_list:
-                        varinit.deviations_list.append(all["scope"]["lines"][0]["name"] + ": " + all["message_variants"][0]["header"])
-                except: pass
-    print(*varinit.deviations_list, sep='\n')
-    return varinit.deviations_list.pop(0)
-
 def get_deviations():
     country = varinit.settings["stations"]["1"]["country"]
     operator = varinit.settings["stations"]["1"]["operator"]
@@ -863,7 +848,7 @@ def scroll_mode():
             
             elif time.monotonic() > varinit.deviations_timer + (varinit.deviations_delay * 60) \
                 and int(varinit.settings["show_msgs"]) and varinit.shared["nightcount"] < 2 \
-                and varinit.settings["stations"]["1"]["operator"] == "sl":
+                and varinit.settings["stations"]["1"]["operator"] in ["sl","vt"]:
                 try: varinit.scrollsum = renderstring(reformat_data([["1", get_deviations(),"***","",""]]), large=True, _cls=bottom)
                 except: varinit.scrollsum = renderstring(reformat_data([["1", " ","***","",""]]), large=True, _cls=bottom)
                 varinit.deviations_timer = time.monotonic()
