@@ -323,12 +323,16 @@ def html():
     # metro section
     metro_html = _chk("METRO", stn["METRO"], "/?type=metro", T["subway"])
 
+
+        
+
     # SL line color filter chips + night-bus toggle, grouped in one show/hide block
     rc = " checked" if int(stn["red"]) else ""
     gc = " checked" if int(stn["green"]) else ""
     bc = " checked" if int(stn["blue"]) else ""
     sl_disp = "" if op_code == "SL" else "display:none;"
     night_bus_html = _chk("night_buses", stn["buses_option"], "/?buses_option=1", T["only_nightbuses"])
+    devs_html = _chk("show_msgs", s["show_msgs"], "/?show_msgs=1", T["t_info"])
     sl_section = ''.join(['<div id="slsection" style="', sl_disp, ';margin-top:10px">',
         '<label class="control-label" style="margin-bottom:6px">Metro line filter</label>',
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">',
@@ -338,7 +342,7 @@ def html():
         '<label class="line-chip" for="g"><span class="dot" style="background:#16a34a"></span>Green</label>',
         '<input type="checkbox" class="btn-check" id="b" name="blue" data-u="/?line=blue"', bc, '>',
         '<label class="line-chip" for="b"><span class="dot" style="background:#2563eb"></span>Blue</label>',
-        '</div>', night_bus_html, '</div>'])
+        '</div>', night_bus_html, devs_html, '</div>',])
 
     # bus section
     bus_html = ""
