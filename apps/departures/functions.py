@@ -169,7 +169,7 @@ def colors():
         varinit.overlay_palette[2] = varinit.palette[2]
     except: pass
 
-def get_deviations():
+_def get_deviations():
     if not len(varinit.deviations_list):
         data = fetch_data(host="data.t-skylt.se", port=89, args="/v1/messages?future=false&transport_mode=METRO&transport_mode=TRAM&transport_mode=TRAIN&transport_mode=SHIP")
         data = json.loads(data)
@@ -181,6 +181,17 @@ def get_deviations():
                     if not all["scope"]["lines"][0]["name"] + ": " + all["message_variants"][0]["header"] in varinit.deviations_list:
                         varinit.deviations_list.append(all["scope"]["lines"][0]["name"] + ": " + all["message_variants"][0]["header"])
                 except: pass
+    print(*varinit.deviations_list, sep='\n')
+    return varinit.deviations_list.pop(0)
+
+def get_deviations():
+    country = varinit.settings["stations"]["1"]["country"]
+    operator = varinit.settings["stations"]["1"]["operator"]
+    siteid = varinit.settings["stations"]["1"]["siteid"]
+    if not len(varinit.deviations_list):
+        data = fetch_data(host="data.t-skylt.se", port=90, args="/get_deviations?country=" + country + "&operator=" + operator + "&station=" + siteid)
+        data = json.loads(data)
+        varinit.deviations_list = data
     print(*varinit.deviations_list, sep='\n')
     return varinit.deviations_list.pop(0)
 
