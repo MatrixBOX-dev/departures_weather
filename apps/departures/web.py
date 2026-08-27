@@ -118,6 +118,7 @@ PAGE_TPL = """<!DOCTYPE html>
 {LISTMODE_CHK}
 {CLOCKTIME_CHK}
 {DEVIATIONS_SECTION}
+{DISRUPTIONS}
 {SLEEP_CHK}
 {BUTTON_MODE_CHK}
 {SHOW_STATION_CHK}
@@ -344,6 +345,10 @@ def html():
         '<label class="line-chip" for="b"><span class="dot" style="background:#2563eb"></span>Blue</label>',
         '</div>', night_bus_html, devs_html, '</div>',])
 
+    
+    disruptions = devs_html if op_code in ["VT"] else ""
+
+
     # bus section
     bus_html = ""
     if op_code != "SJ":
@@ -483,6 +488,7 @@ def html():
         "COUNTRY_FLAG": country_flag,
         "OPERATOR": op, "COMBINED_LIST": combined_list,
         "SCREEN_BUTTONS": screen_btns, "SCREEN_BTN_DISP": screen_btn_disp,
+        "DISRUPTIONS": disruptions,
         "STATION_PH": station_ph, "SEARCH_DIS": search_dis,
         "T_SEARCH": T["_search"],
         "OPBTN_PULSE": 'style="animation:guide-pulse 2.5s ease-in-out infinite"' if (not co or not stn["operator"]) else "",
@@ -525,6 +531,7 @@ def html():
         "T_MINS": T["mins_label"],
         "MINS_VAL": str(s["mins"]),
         "OPS_JSON": ops_json, "STN_JSON": stn_json,
+        
     }
     _out = []
     for _frag, _key in _PARTS:
