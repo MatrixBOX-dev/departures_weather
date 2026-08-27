@@ -305,6 +305,7 @@ def huvudsidan(request):
         stn["siteid"] = "0"
         stn["operator"] = request.params["operator"].lower()
         if "country" in request.params:
+            varinit.deviations_list = []
             stn["country"] = request.params["country"].lower()
         return (200, {}, "")
     elif "change_screen" in request.params:
