@@ -39,6 +39,15 @@ def _chk(name, val, url, label):
             '<label class="switch"><input type="checkbox" id="' + name + '" data-u="' + url + '"' + c + '><span class="slider"></span></label></div>')
 
 
+def _toggle2(name, val, url, label_left, label_right, caption=""):
+    c = " checked" if int(val) else ""
+    cap = '<label for="' + name + '" class="toggle-label">' + caption + '</label>' if caption else ""
+    return ('<div class="toggle-row">' + cap +
+            '<input type="checkbox" id="' + name + '" class="seg-toggle-cb" data-u="' + url + '"' + c + '>'
+            '<label for="' + name + '" class="seg-toggle"><div>' + label_left + '</div><div>' + label_right + '</div></label>'
+            '</div>')
+
+
 def _rssi(functions):
     try:
         ai = functions.wifi.radio.ap_info
@@ -119,8 +128,9 @@ PAGE_TPL = """<!DOCTYPE html>
 {CLOCKTIME_CHK}
 {DEVIATIONS_SECTION}
 {DISRUPTIONS}
-{SLEEP_CHK}
+
 {BUTTON_MODE_CHK}
+{SLEEP_CHK}
 {SHOW_STATION_CHK}
 </div>
 <div class="card">
@@ -153,7 +163,6 @@ PAGE_TPL = """<!DOCTYPE html>
 </table>
 {RT_INDICATOR_CHK}
 {XS_LINE_ID_CHK}
-{MULTI_STATION_LINE_ID_CHK}
 {LISTCOLOR_CHK}
 {LISTCOLOR_TIME_CHK}
 {DEST_SCROLL_CHK}
@@ -394,10 +403,10 @@ def html():
     # list mode
     listmode_html = ""
     if if_long > 64 and varinit.display.height <= 32:
-        listmode_html = _chk("abc", s["listmode"], "/?listmode=switch", T["list"])
+        listmode_html = _toggle2("abc", s["listmode"], "/?listmode=switch", T["scroll_mode"], T["list_mode"], T["mode_label"])
 
     # clocktime
-    clock_html = _chk("clocktime", s["clocktime"], "/?clocktime=switch", T["clocktime"])
+    clock_html = _toggle2("clocktime", s["clocktime"], "/?clocktime=switch", T["countdown"], T["clock_time"], T["time_label"])
 
     # deviations (SL only)
     devs_html = ""
@@ -410,7 +419,7 @@ def html():
     # button mode
     button_mode_html = ""
     if if_long > 64 and varinit.display.height <= 32:
-        button_mode_html = _chk("button_mode", s.get("button_mode", 0), "/?button_mode=switch", T["button_mode"])
+        button_mode_html = _toggle2("button_mode", s.get("button_mode", 0), "/?button_mode=switch", T["turn_off_short"], T["switch_mode"], T["button_behavior_label"])
 
     # show station
     show_stn_html = _chk("show_my_station", s["show_my_station"], "/?show_station=1", T["show_station"])
@@ -456,7 +465,6 @@ def html():
         + _opt("blue", s.get("clock_row_color", "white"), "Blue")
         + '</select></td></tr>'
     )
-    multi_station_line_id_chk = _chk("MULTI_STATION_LINE_ID", s.get("multi_station_line_id", 0), "/?multi_station_line_id=switch", "Show line ID in multi-line list mode") if if_long > 64 else ""
     # dest_scroll
     dest_scroll_html = _chk("DEST_SCROLL", s.get("dest_scroll", 0), "/?dest_scroll=switch", "Scroll long destination names")
 
@@ -521,7 +529,6 @@ def html():
         "LISTCOLOR_CHK": listcolor_html,
         "LISTCOLOR_TIME_CHK": listcolor_time_html,
         "CLOCK_ROW_HTML": clock_row_html,
-        "MULTI_STATION_LINE_ID_CHK": multi_station_line_id_chk,
         "T_LINE_LENGTH": T["line_length"],
         "T_LINE_LENGTH_HELP": "Most line numbers are 1-2 characters, so this often looks the same until a line uses a longer code.",
         "LINE_LENGTH_VAL": str(s["line_length"]),
