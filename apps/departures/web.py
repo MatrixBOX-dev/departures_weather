@@ -78,7 +78,12 @@ PAGE_TPL = """<!DOCTYPE html>
 <div class="page">
 <form method="post" action="/">
 <div class="card">
-<div class="section-title">{T_WIFI_LABEL}</div>
+
+<div class="section-title">
+<details>
+<summary>&#9881; {T_WIFI_LABEL}</summary>
+
+
 <div class="form-row">
 <div class="col">
 <label for="ssid"><a href="#" onclick="doScan();return false" title="Scan">&#128268;</a> {T_WIFI_LABEL}</label>
@@ -90,7 +95,7 @@ PAGE_TPL = """<!DOCTYPE html>
 </div>
 </div>
 <button type="button" class="btn btn-outline-secondary btn-sm" id="connect_wifi" style="margin-top:10px" data-u="/?connect_wifi=true" {NET_DIS}>{T_CONNECT}</button>
-</div>
+</div></div>
 <div class="card">
 <div class="section-title">{T_NETWORK_LABEL}</div>
 {MULTIPLE_SECTION}
