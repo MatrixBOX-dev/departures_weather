@@ -869,22 +869,22 @@ def clock_string():
     if int(varinit.settings.get("clock_row_date", 0)):
         datepart = _z(t[2]) + "." + _z(t[1]) + "." + _z(t[0] % 100)
         return datepart + " * " + hhmm
-    if varinit.settings.get("clock_row_align", "left") == "center":
-        return "*** " + hhmm + " ***"
     return hhmm
 
-def apply_clock_row(trainlist):
-    # Replaces a departure row with the current date/time, if enabled.
+def apply_clock_row(trainlist, is_clock_station=True):
+    # Reserves the same row position (top or bottom) in every station's list,
+    # so the clock can use the full display width in half mode without a
+    # neighboring station ever having a real departure sharing that row.
     if not int(varinit.settings.get("show_clock_row", 0)): return trainlist
     if not isinstance(trainlist, list) or not trainlist: return trainlist
     if not isinstance(trainlist[0], list): return trainlist
     n = max(1, int(varinit.settings.get("maxdest", 1)))
     kept = trainlist[:max(0, n - 1)]
-    clock_row = ["0", "", clock_string(), "", CLOCK_ROW_MARK]
+    reserved_row = ["0", "", clock_string() if is_clock_station else "", "", CLOCK_ROW_MARK]
     if varinit.settings.get("clock_row_position", "bottom") == "top":
-        kept.insert(0, clock_row)
+        kept.insert(0, reserved_row)
     else:
-        kept.append(clock_row)
+        kept.append(reserved_row)
     return kept
 
 def list_mode(mini=False, half=False):
@@ -969,7 +969,7 @@ def list_mode(mini=False, half=False):
         for i in range(_r):
             print("Fetching: ", i+1)
             _data = reformat_data(get_departure(num = str(i+1)))
-            varinit.traindata[i+1] = apply_clock_row(_data) if i == 0 else _data
+            varinit.traindata[i+1] = apply_clock_row(_data, is_clock_station=(i == 0))
             if not half or i+1 == _r: break
         
     
@@ -1017,6 +1017,7 @@ def list_mode(mini=False, half=False):
             for x, all in enumerate(trainlist):
 
                 is_clock_row = len(all) > 4 and all[4] == CLOCK_ROW_MARK
+                if is_clock_row and int(record) != 1: continue
                 all[2] = all[2].split('(')[0].split(" via")[0]#.lower()
                 _strip_dest = varinit.settings.get("strip_dest", [])
                 if isinstance(_strip_dest, list):
@@ -1073,7 +1074,7 @@ def list_mode(mini=False, half=False):
                             all[2] = all[2][:-1]
                 if half:
                     if is_clock_row:
-                        _max_px = 64 - strlen(all[3]) - 1
+                        _max_px = varinit.if_long - strlen(all[3]) - 1
                         while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
                             all[2] = all[2][:-1]
                     elif multi_station_line_id:
