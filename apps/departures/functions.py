@@ -976,13 +976,6 @@ def list_mode(mini=False, half=False):
     
     
     try:
-    
-        if varinit.settings["long"] == -1: num = 1
-        if varinit.settings["long"] == 0: num = 2
-        if varinit.settings["long"] == 1: num = 3
-
-        #num=varinit.no_of_screens_flag
-        
         for record in varinit.traindata:
             print(record)
             trainlist = varinit.traindata[record]
@@ -1117,10 +1110,8 @@ def list_mode(mini=False, half=False):
 
                 if half: minsleft = minsleft.replace(" " + if_not_clocktime, "")
                 
-                if half: multiple_offset = int(num - 1) * (" " * 64)
-                    
-                
-                else: multiple_offset = ""
+                if half: multiple_offset = (int(record) - 1) * 64
+                else: multiple_offset = 0
         
                 min_color = "white" if varinit.settings.get("listcolor_time", 0) or varinit.rotated else "yellow"
                 lin_color = "yellow" if not varinit.settings["listcolor"] else "white"
@@ -1151,9 +1142,9 @@ def list_mode(mini=False, half=False):
                 if large_list:
                     _lpart = 100 + x
                     _dest_pad = line_col * "("
-                    renderstring(multiple_offset + minsleft, _lpart, 0, 0, inv, sys_msg=min_color)
-                    renderstring(multiple_offset + _dest_pad + dest, _lpart, 0, 0, inv, sys_msg=(clock_color if is_clock_row else False))
-                    if not half and not varinit.rotated: renderstring(multiple_offset + line, _lpart, 0, 0, inv, sys_msg=lin_color)
+                    renderstring(minsleft, _lpart, 0, 0, inv, sys_msg=min_color, start_x=multiple_offset)
+                    renderstring(_dest_pad + dest, _lpart, 0, 0, inv, sys_msg=(clock_color if is_clock_row else False), start_x=multiple_offset)
+                    if not half and not varinit.rotated: renderstring(line, _lpart, 0, 0, inv, sys_msg=lin_color, start_x=multiple_offset)
                     if x > 4: continue
                 else:
                     _use_tg = (_dest_scroll and not half and not varinit.rotated
@@ -1173,21 +1164,20 @@ def list_mode(mini=False, half=False):
                             "overflow": _overflow, "pos": 0,
                             "pause_end": _now + x * 0.8 + 2.0, "start_x": _line_col_w
                         }
-                        renderstring(multiple_offset + minsleft, 100+x, 0, 0, inv, mini=mini,
-                                     sys_msg=min_color, target_bmp=varinit.overlay_bmp)
+                        renderstring(minsleft, 100+x, 0, 0, inv, mini=mini,
+                                     sys_msg=min_color, target_bmp=varinit.overlay_bmp, start_x=multiple_offset)
                         if _show_line:
-                            renderstring(multiple_offset + line, 100+x, 0, 0, inv, mini=mini,
-                                         sys_msg=lin_color, target_bmp=varinit.overlay_bmp)
+                            renderstring(line, 100+x, 0, 0, inv, mini=mini,
+                                         sys_msg=lin_color, target_bmp=varinit.overlay_bmp, start_x=multiple_offset)
                         varinit.overlay_tg.y = extrarow
                         varinit.overlay_tg.hidden = False
                     else:
-                        renderstring(multiple_offset + minsleft, 100+x, 0, 0, inv, mini=mini, sys_msg=min_color)
-                        renderstring(multiple_offset + added_space + dest, 100+x, 0, 0, inv, mini=mini, sys_msg=(clock_color if is_clock_row else False))
+                        renderstring(minsleft, 100+x, 0, 0, inv, mini=mini, sys_msg=min_color, start_x=multiple_offset)
+                        renderstring(added_space + dest, 100+x, 0, 0, inv, mini=mini, sys_msg=(clock_color if is_clock_row else False), start_x=multiple_offset)
                         if _show_line:
-                            renderstring(multiple_offset + line, 100+x, 0, 0, inv, mini=mini, sys_msg=lin_color)
+                            renderstring(line, 100+x, 0, 0, inv, mini=mini, sys_msg=lin_color, start_x=multiple_offset)
                     if x > varinit.if_tall // 8 - 1: continue
-            num -= 1
-            
+
     except Exception as e: print("ERROR ", e)
     refresh()
 
