@@ -960,7 +960,16 @@ def list_mode(mini=False, half=False):
             if varinit.settings["long"] == 1: _r = 3
         else: _r = 1
     except: pass
-    
+
+    # Each station gets an equal share of the physical display, so a device
+    # with spare panels (e.g. the XL's three panels showing only 2 stations)
+    # spreads its stations across the full width.
+    # COL_MARGIN keeps a small gap at the column's edges; the rest
+    # of the column is filled by the natural gap between the destination
+    # and the time, so a wider column just reads as more breathing room.
+    col_w = varinit.if_long // _r
+    COL_MARGIN = 2
+
     merge_list_mode = int(varinit.settings["multiple"]) and varinit.display.width <= 64 and not varinit.rotated
     if merge_list_mode:
         print("Fetching merged stops")
@@ -1078,7 +1087,7 @@ def list_mode(mini=False, half=False):
                         while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
                             all[2] = all[2][:-1]
                     elif multi_station_line_id:
-                        _max_px = 64 - strlen(all[3]) - line_col - 1
+                        _max_px = col_w - (COL_MARGIN * 2) - strlen(all[3]) - line_col - 1
                         while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
                             all[2] = all[2][:-1]
                     else:
@@ -1099,9 +1108,9 @@ def list_mode(mini=False, half=False):
                 elif varinit.display.width <= 64:
                     offs = varinit.display.width - strlen(all[3])
                 else: offs = varinit.if_long - strlen(all[3])
-                if half: 
+                if half:
                     all[3] = all[3].replace(" " + if_not_clocktime,"")
-                    offs = 64 - strlen(all[3])
+                    offs = col_w - COL_MARGIN - strlen(all[3])
 
                     
 
@@ -1111,7 +1120,7 @@ def list_mode(mini=False, half=False):
 
                 if half: minsleft = minsleft.replace(" " + if_not_clocktime, "")
                 
-                if half: multiple_offset = (int(record) - 1) * 64
+                if half: multiple_offset = (int(record) - 1) * col_w
                 else: multiple_offset = 0
         
                 min_color = "white" if varinit.settings.get("listcolor_time", 0) or varinit.rotated else "yellow"
@@ -1125,7 +1134,7 @@ def list_mode(mini=False, half=False):
                         added_space = (_xs_max_lw + 2) * "("
                 elif mini:
                     added_space = varinit.settings["line_length"] * "(((("
-                    if half: added_space = line_col * "(" if multi_station_line_id else ""
+                    if half: added_space = COL_MARGIN * "(" + (line_col * "(" if multi_station_line_id else "")
                 else: added_space = varinit.settings["line_length"] * "(((((("
                 if not varinit.settings["line_length"]:
                     added_space = ""

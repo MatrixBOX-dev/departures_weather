@@ -406,6 +406,21 @@ def html():
     # first so the [1][2][3] screen picker below makes sense
     mult_html = _chk("multiple", s["multiple"], "/?multiple=1", T["multiple"])
 
+    # station count (XL only: with 3 panels available, side-by-side lists
+    # can show either 2 or 3 stations; other devices always fill every
+    # panel they have, so there's nothing to pick). Reuses the existing
+    # /?width= endpoint, which already maps "x"/"xl" to settings["long"].
+    if if_long > 128:
+        _cur_width = "xl" if int(s.get("long", 0)) == 1 else "x"
+        mult_html += (
+            '<div class="toggle-row" id="stationcount" style="' + ("" if int(s["multiple"]) else "display:none;") + '">'
+            '<label for="station_count" class="toggle-label">Columns</label>'
+            '<select id="station_count" class="form-control" style="width:130px;display:inline" data-p="width" data-e="change">'
+            + _opt("x", _cur_width, "2 stations")
+            + _opt("xl", _cur_width, "3 stations")
+            + '</select></div>'
+        )
+
     # list mode
     listmode_html = ""
     if if_long > 64 and varinit.display.height <= 32:
