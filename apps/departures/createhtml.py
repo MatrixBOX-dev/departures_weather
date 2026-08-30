@@ -285,10 +285,18 @@ def huvudsidan(request):
         
         if request.params["width"] == "xs": varinit.settings["long"] = -1
         elif request.params["width"] == "x": varinit.settings["long"] = 0
-        elif request.params["width"] == "xl": varinit.settings["long"] = 1
+        elif request.params["width"] == "xl":
+            varinit.settings["long"] = 1
+            # Station 3 defaults to an inactive sentinel (siteid "00"), so
+            # switching a fresh setup to 3 columns would otherwise show an
+            # unconfigured, empty third station. Seed it from station 1
+            # (already configured on any device in real use) instead.
+            station_3 = varinit.settings["stations"]["3"]
+            if station_3["siteid"] in ("00", "0", "000", "") or not station_3["operator"]:
+                varinit.settings["stations"]["3"] = dict(varinit.settings["stations"]["1"])
         else: return (200, {}, mkhtml())
-        functions.savesettings()
-        functions.reset()
+
+        functions.switch(_screen=False)
         return (200, {}, mkhtml())
 
     elif "checknet" in request.params: 
