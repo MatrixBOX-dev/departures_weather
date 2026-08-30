@@ -168,6 +168,7 @@ PAGE_TPL = """<!DOCTYPE html>
 </table>
 {RT_INDICATOR_CHK}
 {XS_LINE_ID_CHK}
+{MULTI_STATION_LINE_ID_CHK}
 {LISTCOLOR_CHK}
 {LISTCOLOR_TIME_CHK}
 {DEST_SCROLL_CHK}
@@ -188,7 +189,7 @@ function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.queryS
 function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.borderColor='#ff6060';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
 function doScan(){fetch('/checknet').then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('ssid');sel.innerHTML=h;sel.disabled=false;document.getElementById('password').disabled=false;document.getElementById('connect_wifi').disabled=false;}).catch(function(){});}
 
-var mc=document.getElementById('multiple');if(mc)mc.addEventListener('change',function(){var sb=document.getElementById('screenbtns');if(sb)sb.style.visibility=mc.checked?'visible':'hidden';});
+var mc=document.getElementById('multiple');if(mc)mc.addEventListener('change',function(){var sb=document.getElementById('screenbtns');if(sb)sb.style.visibility=mc.checked?'visible':'hidden';var sc=document.getElementById('stationcount');if(sc)sc.style.display=mc.checked?'':'none';});
 function setFont(v,el){fetch('/?font_size='+v);var bs=el.parentNode.querySelectorAll('button');bs.forEach(function(b){b.classList.remove('on');});el.classList.add('on');}
 function setColor(v,el){fetch('/?color='+v);el.parentNode.querySelectorAll('.color-swatch-btn').forEach(function(b){b.classList.remove('active');});el.classList.add('active');}
 document.querySelectorAll('[data-u],[data-p]').forEach(function(el){
@@ -450,6 +451,7 @@ def html():
     )
     font_size_row = '<tr><td><b>' + T["font_mini"] + '</b></td><td>' + font_size_html + '</td></tr>' if if_long > 64 else ""
     xs_line_id_chk = _chk("XS_LINE_ID", s.get("xs_line_id", 0), "/?xs_line_id=switch", "Show line ID") if if_long <= 64 else ""
+    multi_station_line_id_chk = _chk("MULTI_STATION_LINE_ID", s.get("multi_station_line_id", 0), "/?multi_station_line_id=switch", "Show line ID in multi-line list mode") if if_long > 64 else ""
     clock_row_html = (
         '<tr><td><b>Clock row</b></td><td>' + _chk("SHOW_CLOCK_ROW", s.get("show_clock_row", 0), "/?show_clock_row=switch", "Show date/time instead of a departure") + '</td></tr>'
         '<tr><td><b>Clock: show date</b></td><td>' + _chk("CLOCK_ROW_DATE", s.get("clock_row_date", 0), "/?clock_row_date=switch", "Include date") + '</td></tr>'
@@ -529,6 +531,7 @@ def html():
         "T_TONE": T["tone"], "TONE_SWATCHES": tone_html,
         "FONT_SIZE_ROW": font_size_row,
         "XS_LINE_ID_CHK": xs_line_id_chk,
+        "MULTI_STATION_LINE_ID_CHK": multi_station_line_id_chk,
         "DEST_SCROLL_CHK": dest_scroll_html,
         "RT_INDICATOR_CHK": rt_indicator_html,
         "LISTCOLOR_CHK": listcolor_html,
