@@ -11,6 +11,8 @@ _noise_threshold = 0.04  # presses shorter than this are treated as noise
 
 def check_if_button_pressed(strict=True):
     global _btn_state, _btn_time, _release_time
+    if settings.get("enable_button", 1) == 0:
+        return 0
     now = time.monotonic()
     pressed = time_button()
 

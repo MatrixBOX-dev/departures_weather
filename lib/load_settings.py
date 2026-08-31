@@ -16,7 +16,8 @@ def settings():
                 "ai_provider":"",
                 "ai_key":"",
                 "ai_model":"",
-                "color_correct":False}
+                "color_correct":False,
+                "enable_button":1}
 
      try: #iteration
             defaults = set(settings)

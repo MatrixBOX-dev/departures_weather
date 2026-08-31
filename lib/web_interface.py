@@ -97,8 +97,8 @@ def textbox(settings):
         "height": {"min": 32, "max": 320, "step": 32},
     }
     hidden_keys = {"ai_provider", "ai_key", "ai_model", "repository_file"}
-    advanced_keys = {"width", "height", "tiles", "repository_url", "color_correct"}
-    advanced_order = ["width", "height", "tiles", "repository_url", "color_correct"]
+    advanced_keys = {"width", "height", "tiles", "repository_url", "color_correct", "enable_button"}
+    advanced_order = ["width", "height", "tiles", "repository_url", "color_correct", "enable_button"]
     wifi_group = {}
     app_group = []
     main_html = ""
@@ -161,8 +161,16 @@ def textbox(settings):
             _ck = "checked" if _on else ""
             chunk = ('<label>Color correct</label>'
                 '<div class="toggle-row">'
-                '<input type="checkbox" id="color_correct" ' + _ck + " onchange=\"fetch('/color_correct?v='+this.checked,{method:'POST'})\">" 
+                '<input type="checkbox" id="color_correct" ' + _ck + " onchange=\"fetch('/color_correct?v='+this.checked,{method:'POST'})\">"
                 '<label for="color_correct">Swap G/B LED pins</label></div>')
+        elif setting == "enable_button":
+            _on = str(val).lower() not in ("false", "0", "", "none")
+            _ck = "checked" if _on else ""
+            chunk = ('<label>Enable button</label>'
+                '<div class="toggle-row">'
+                '<input type="hidden" name="enable_button" value="0">'
+                '<input type="checkbox" id="enable_button" name="enable_button" value="1" ' + _ck + '>'
+                '<label for="enable_button">Enable button</label></div>')
         else:
             chunk = f"""<label for="{setting}">{setting}</label>
 <input type="text" id="{setting}" name="{setting}" placeholder="{str(val)}">"""
@@ -190,6 +198,15 @@ def textbox(settings):
             '<div class="toggle-row">'
             '<input type="checkbox" id="color_correct" ' + _ck + " onchange=\"fetch('/color_correct?v='+this.checked,{method:'POST'})\">"
             '<label for="color_correct">Swap G/B LED pins</label></div>')
+    if "enable_button" not in adv_items:
+        _eb = settings.get("enable_button", 1)
+        _on = str(_eb).lower() not in ("false", "0", "", "none")
+        _ck = "checked" if _on else ""
+        adv_items["enable_button"] = ('<label>Enable button</label>'
+            '<div class="toggle-row">'
+            '<input type="hidden" name="enable_button" value="0">'
+            '<input type="checkbox" id="enable_button" name="enable_button" value="1" ' + _ck + '>'
+            '<label for="enable_button">Enable button</label></div>')
     adv_html = "".join(adv_items[k] for k in advanced_order if k in adv_items)
     if adv_html:
         settings_html += """<div style="margin-top:12px"><button type="button" class="btn btn-sm" onclick="var a=document.getElementById('adv_section');a.style.display=a.style.display==='none'?'block':'none'">&#9881; Advanced</button></div><div id="adv_section" style="display:none">""" + adv_html + """</div>"""
