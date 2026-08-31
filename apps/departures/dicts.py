@@ -377,7 +377,7 @@ language = {"se":{"settings":{"connected":"Ansluten",
                               },
                       
                       "display":{"your_settings":"Inställningar:      ",
-                                 "no_more_departures":"Inga fler avgångar",
+                                 "no_more_departures":"Inga avgångar",
                                  "check_connection":"Kontrollera din anslutning",
                                  "north_south":"Norr- och södergående",
                                  "north":"Norrgående",
@@ -517,7 +517,7 @@ language = {"se":{"settings":{"connected":"Ansluten",
                               
                       
                       "display":{"your_settings":"Your settings:        ",
-                                 "no_more_departures":"No more departures",
+                                 "no_more_departures":"No departures",
                                  "check_connection":"Check your connection",
                                  "north_south":"North and southbound",
                                  "north":"Northbound",
