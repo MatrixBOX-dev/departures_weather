@@ -859,6 +859,7 @@ def scroll_mode():
             print("RND: ", rnd)
 
 CLOCK_ROW_MARK = "__clock__"
+MSG_ROW_MARK = "__msg__"
 
 def clock_string():
     t = time.localtime(varinit.currenttime)
@@ -876,6 +877,9 @@ def apply_clock_row(trainlist, is_clock_station=True):
     # so the clock can use the full display width in half mode without a
     # neighboring station ever having a real departure sharing that row.
     if not int(varinit.settings.get("show_clock_row", 0)): return trainlist
+    # wrap a message string into a row so it still leaves room for the clock row below
+    if isinstance(trainlist, str):
+        trainlist = [["", "", trainlist[:40], "", MSG_ROW_MARK]]
     if not isinstance(trainlist, list) or not trainlist: return trainlist
     if not isinstance(trainlist[0], list): return trainlist
     n = max(1, int(varinit.settings.get("maxdest", 1)))
@@ -998,7 +1002,7 @@ def list_mode(mini=False, half=False):
             elif "str" in str(type(trainlist)): 
                 print(trainlist)
                 #sysprint("".join(trainlist[:30]), 100)
-                trainlist = [["","",trainlist[:40],"",""]]
+                trainlist = [["","",trainlist[:40],"",MSG_ROW_MARK]]
                     #continue
                 #if dicts.language[settings["language"]]["display"]["no_more_departures"] in trainlist: 
                 #    return time.monotonic()
@@ -1026,6 +1030,7 @@ def list_mode(mini=False, half=False):
             for x, all in enumerate(trainlist):
 
                 is_clock_row = len(all) > 4 and all[4] == CLOCK_ROW_MARK
+                is_msg_row = len(all) > 4 and all[4] == MSG_ROW_MARK
                 if is_clock_row and int(record) != 1: continue
                 all[2] = all[2].split('(')[0].split(" via")[0]#.lower()
                 _strip_dest = varinit.settings.get("strip_dest", [])
@@ -1050,7 +1055,7 @@ def list_mode(mini=False, half=False):
 
                 if_not_clocktime = (
                     varinit.settings["mins"]
-                    if all[3] and not varinit.settings["clocktime"] and not is_clock_row
+                    if all[3] and not varinit.settings["clocktime"] and not (is_clock_row or is_msg_row)
                     else ""
                 )
 
@@ -1062,7 +1067,7 @@ def list_mode(mini=False, half=False):
                 if varinit.rotated or varinit.display.width <= 64:
                     _w = varinit.if_long if varinit.rotated else varinit.display.width
                     _max_px = _w - strlen(all[3])
-                    if not varinit.rotated and xs_line_id and not is_clock_row:
+                    if not varinit.rotated and xs_line_id and not (is_clock_row or is_msg_row):
                         _max_px -= _xs_max_lw + 2
                     all[2] = abbreviate_dest(all[2], _max_px)
                     while len(all[2]) > 0 and strlen(all[2]) > _max_px:
@@ -1074,7 +1079,7 @@ def list_mode(mini=False, half=False):
                     while len(all[2]) > 0 and sum(_font.get(c, _font['_'])[0] for c in all[2]) > max(0, _max_px):
                         all[2] = all[2][:-1]
                 elif not half:
-                    _line_col_w = strlen(varinit.settings["line_length"] * ("((((" if mini else "(((((("))
+                    _line_col_w = 0 if (is_clock_row or is_msg_row) else strlen(varinit.settings["line_length"] * ("((((" if mini else "(((((("))
                     _max_px = varinit.if_long - strlen(all[3]) - _line_col_w - 2
                     _full_dest_w = strlen(all[2])
                     if not (_dest_scroll and _full_dest_w > max(0, _max_px)):
@@ -1083,7 +1088,13 @@ def list_mode(mini=False, half=False):
                             all[2] = all[2][:-1]
                 if half:
                     if is_clock_row:
+                        # only column 1 ever renders this row (others `continue` above), so it
+                        # can use the full display width rather than a single column's share
                         _max_px = varinit.if_long - strlen(all[3]) - 1
+                        while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
+                            all[2] = all[2][:-1]
+                    elif is_msg_row:
+                        _max_px = col_w - COL_MARGIN - strlen(all[3]) - 1
                         while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
                             all[2] = all[2][:-1]
                     elif multi_station_line_id:
@@ -1147,6 +1158,9 @@ def list_mode(mini=False, half=False):
                     if _clock_align == "center": _clock_pad = _clock_pad // 2
                     elif _clock_align == "left": _clock_pad = 0
                     added_space = _clock_pad * "("
+                    line = ""
+                elif is_msg_row:
+                    added_space = ""
                     line = ""
 
                 if large_list:
