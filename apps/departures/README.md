@@ -51,3 +51,20 @@ tick.
 
 Settings > **Strip from dest**. Comma-separated substrings to remove from
 destination names (e.g. to drop a suffix your local operator always adds).
+
+## Station cycling
+
+Settings > **Cycle stations**. Shows one stop at a time and switches to the
+next configured stop on a timer, instead of showing them side by side.
+
+| Setting | Values | Notes |
+|---|---|---|
+| Cycle stations | on/off | master toggle |
+| Seconds per station | 3+ | how long each stop stays on screen |
+| Switch screen seconds | 0-15 | how long the incoming stop's name is shown |
+
+Mutually exclusive with **multiple stops**, which already shows every stop at
+once; the toggle is hidden while that is on. Not available in portrait.
+
+The incoming stop's departures are fetched while its name is on screen, so
+they are already in memory when the switch screen clears.

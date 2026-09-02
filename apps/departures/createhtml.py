@@ -440,6 +440,20 @@ def huvudsidan(request):
         varinit.settings["multiple"] = 1 - varinit.settings["multiple"]
         functions.switch(_screen=False)
         return (200, {}, "")
+    elif "cycle_screens" in request.params:
+        varinit.settings["cycle_screens"] = 1 - int(varinit.settings.get("cycle_screens", 0))
+        varinit.cycle_timer = 0
+        varinit.active_station = functions.configured_stations()[0]
+        functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "cycle_interval" in request.params:
+        try: varinit.settings["cycle_interval"] = max(3, int(request.params["cycle_interval"]))
+        except: pass
+        return (200, {}, "")
+    elif "switch_hold" in request.params:
+        try: varinit.settings["switch_hold"] = min(15, max(0, int(request.params["switch_hold"])))
+        except: pass
+        return (200, {}, "")
     elif "screen" in request.params:
         varinit.screen_selector = request.params["screen"]
         functions.switch(_screen=False)

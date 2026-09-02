@@ -189,7 +189,8 @@ function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.queryS
 function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.borderColor='#ff6060';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
 function doScan(){fetch('/checknet').then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('ssid');sel.innerHTML=h;sel.disabled=false;document.getElementById('password').disabled=false;document.getElementById('connect_wifi').disabled=false;}).catch(function(){});}
 
-var mc=document.getElementById('multiple');if(mc)mc.addEventListener('change',function(){var sb=document.getElementById('screenbtns');if(sb)sb.style.visibility=mc.checked?'visible':'hidden';var sc=document.getElementById('stationcount');if(sc)sc.style.display=mc.checked?'':'none';});
+var mc=document.getElementById('multiple');if(mc)mc.addEventListener('change',function(){var sb=document.getElementById('screenbtns');if(sb)sb.style.visibility=mc.checked?'visible':'hidden';var sc=document.getElementById('stationcount');if(sc)sc.style.display=mc.checked?'':'none';})var cr=document.getElementById('cyclerow');if(cr)cr.style.display=mc.checked?'none':'';var cf=document.getElementById('cyclecfg');if(cf&&mc.checked)cf.style.display='none';});
+var cy=document.getElementById('cycle_screens');if(cy)cy.addEventListener('change',function(){var cf=document.getElementById('cyclecfg');if(cf)cf.style.display=cy.checked?'':'none';});
 function setFont(v,el){fetch('/?font_size='+v);var bs=el.parentNode.querySelectorAll('button');bs.forEach(function(b){b.classList.remove('on');});el.classList.add('on');}
 function setColor(v,el){fetch('/?color='+v);el.parentNode.querySelectorAll('.color-swatch-btn').forEach(function(b){b.classList.remove('active');});el.classList.add('active');}
 document.querySelectorAll('[data-u],[data-p]').forEach(function(el){
@@ -420,6 +421,24 @@ def html():
             + _opt("xl", _cur_width, "3 stations")
             + '</select></div>'
         )
+
+    # station cycling (one station at a time, switching on a timer). Mutually
+    # exclusive with side-by-side, which already shows every slot at once.
+    _cyc = int(s.get("cycle_screens", 0))
+    _cyc_hide = "display:none;" if int(s["multiple"]) else ""
+    mult_html += (
+        '<div id="cyclerow" style="' + _cyc_hide + '">'
+        + _chk("cycle_screens", _cyc, "/?cycle_screens=1", "Cycle stations")
+        + '</div>'
+        '<div id="cyclecfg" style="' + ("" if _cyc and not int(s["multiple"]) else "display:none;") + '">'
+        '<div class="toggle-row"><label for="cycle_interval" class="toggle-label">Seconds per station</label>'
+        '<input type="text" id="cycle_interval" class="form-control" style="width:60px;display:inline" value="'
+        + str(s.get("cycle_interval", 15)) + '" data-p="cycle_interval" data-e="blur"></div>'
+        '<div class="toggle-row"><label for="switch_hold" class="toggle-label">Switch screen seconds</label>'
+        '<input type="text" id="switch_hold" class="form-control" style="width:60px;display:inline" value="'
+        + str(s.get("switch_hold", 3)) + '" data-p="switch_hold" data-e="blur"></div>'
+        '</div>'
+    )
 
     # list mode
     listmode_html = ""

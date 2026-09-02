@@ -22,6 +22,74 @@ def strlen(_string):
 
 LOGO_CHAR = "Ⓜ"
 
+def _cycle_slot_count():
+    # Station slots this panel offers; matches the settings UI's screen buttons.
+    return 2 if varinit.if_long == 128 else 3
+
+def configured_stations():
+    # Ordered station slots that have a real siteid.
+    out = []
+    for i in range(1, _cycle_slot_count() + 1):
+        k = str(i)
+        try:
+            if str(varinit.settings["stations"][k]["siteid"]) not in ("", "0", "00", "000"):
+                out.append(k)
+        except: pass
+    return out or ["1"]
+
+def next_station():
+    # Peek the next configured slot without switching to it.
+    lst = configured_stations()
+    if len(lst) < 2: return varinit.active_station
+    cur = varinit.active_station if varinit.active_station in lst else lst[0]
+    return lst[(lst.index(cur) + 1) % len(lst)]
+
+def cycle_due():
+    # Side-by-side already shows every slot at once, and portrait keeps its own
+    # layout, so cycling stays off for both.
+    if not int(varinit.settings.get("cycle_screens", 0)) or varinit.rotated: return False
+    if int(varinit.settings["multiple"]): return False
+    if time.monotonic() <= varinit.cycle_timer + int(varinit.settings.get("cycle_interval", 15)): return False
+    return len(configured_stations()) > 1
+
+def _switch_hold(seconds):
+    # Hold the switch screen; a button press cuts it short.
+    t = time.monotonic()
+    while time.monotonic() < t + seconds:
+        try:
+            if not varinit.button.value: return
+        except: pass
+        time.sleep(0.05)
+
+def cycle_station():
+    # Move to the next configured station, naming it on the switch screen while its
+    # departures are fetched, so they are already in memory when the panel clears.
+    varinit.cycle_timer = time.monotonic()
+    nxt = next_station()
+    varinit.active_station = nxt
+    if not int(varinit.settings["listmode"]):
+        try:
+            renderstring(varinit.text[4] + varinit.settings["stations"][nxt]["mystation"][:16],
+                         1, 0, large=True, _cls=top)
+            cls(bottom)
+            refresh()
+            _hold = int(varinit.settings.get("switch_hold", 3))
+            _t0 = time.monotonic()
+            prefetch_departures(nxt)
+            _switch_hold(max(0, _hold - (time.monotonic() - _t0)))
+            cls(top)
+        except Exception as e:
+            print("Cycle error:", e)
+    varinit.currentfont = 0
+    varinit.active_message = False
+    # Clear the switch screen and reset the scroll the same way switch() does, so the
+    # new stop's departures are drawn straight away instead of the main loop scrolling
+    # the leftover switch screen off to the left first.
+    cls(bottom)
+    varinit.tg2.x = 0
+    reset_scroll()
+    return nxt
+
 def temperature_check():
     if round(microcontroller.cpu.temperature) > varinit.temperature_threshold: 
         print("Temp-warning: ", round(microcontroller.cpu.temperature))
@@ -132,7 +200,7 @@ def switch(_screen=True, _cls=False, force=False, wifi_screen=False):
             if not force: list_splash(_settings=varinit.shared["startup"])
             if wifi_screen: update_screen()
         else: 
-            renderstring(varinit.text[4]+ varinit.settings["stations"]["1"]["mystation"][:16], 1, 0,large=True, _cls=top)
+            renderstring(varinit.text[4]+ varinit.settings["stations"][varinit.active_station]["mystation"][:16], 1, 0,large=True, _cls=top)
         bounce(direction)
     cls(bottom, _refresh=True)
     reset_scroll()
@@ -170,9 +238,9 @@ def colors():
     except: pass
 
 def get_deviations():
-    country = varinit.settings["stations"]["1"]["country"]
-    operator = varinit.settings["stations"]["1"]["operator"]
-    siteid = varinit.settings["stations"]["1"]["siteid"]
+    country = varinit.settings["stations"][varinit.active_station]["country"]
+    operator = varinit.settings["stations"][varinit.active_station]["operator"]
+    siteid = varinit.settings["stations"][varinit.active_station]["siteid"]
     if not len(varinit.deviations_list):
         data = fetch_data(host="data.t-skylt.se", port=90, args="/get_deviations?country=" + country + "&operator=" + operator + "&station=" + siteid)
         data = json.loads(data)
@@ -509,6 +577,29 @@ def traffic_parser(data, traffic_type, num="1"):
                             dataout.append(dep)
     return dataout
 
+def prefetch_departures(num):
+    # Fill the cache get_departure() already reads from, so the round trip happens
+    # while the switch screen is up instead of after the panel has cleared.
+    try:
+        stn = varinit.settings["stations"][num]
+        if str(stn["siteid"]) in ("", "0", "00", "000") or not stn["operator"]: return False
+    except: return False
+    try:
+        temperature_check()
+        _data = fetch_data(host="data.t-skylt.se", port=90,
+                           args='/get_departures?country=' + stn["country"] +
+                                '&operator=' + stn["operator"] +
+                                "&station=" + str(stn["siteid"]))
+        if not _data: return False
+        varinit.cached_departure_data[num] = json.loads(_data)
+        varinit.use_cached_data = True
+        print("■ Prefetched station", num)
+        return True
+    except Exception as e:
+        # A miss just means get_departure() fetches normally, exactly as before.
+        print("Prefetch failed:", e)
+        return False
+
 def get_departure(num = "1", dataout = [["1", "^ Data error","","",""]]):
     
     if varinit.settings["stations"][num]["siteid"] == "00" or not varinit.settings["stations"][num]["operator"]: return [["1", dicts.language[varinit.settings["language"]]["settings"]["select_operator"], "***","",""]]
@@ -822,10 +913,10 @@ def scroll_mode():
     elif varinit.shared["loop_counter"] == -3:   
         
         
-        renderstring(varinit.text[4]+ varinit.settings["stations"]["1"]["mystation"][:16], 1, 0, large=True, _cls=top)
+        renderstring(varinit.text[4]+ varinit.settings["stations"][varinit.active_station]["mystation"][:16], 1, 0, large=True, _cls=top)
         if varinit.settings["direction"] == 1: direction = varinit.text[10]
         elif varinit.settings["direction"] == 2: direction = varinit.text[11]
-        ifoffset = " + " + str(varinit.settings["stations"]["1"]["offset"]) + varinit.settings["mins"] if int(varinit.settings["stations"]["1"]["offset"]) else ""
+        ifoffset = " + " + str(varinit.settings["stations"][varinit.active_station]["offset"]) + varinit.settings["mins"] if int(varinit.settings["stations"][varinit.active_station]["offset"]) else ""
         varinit.text[5] = direction + "   >   " + str(varinit.settings["maxdest"]) + dicts.language[varinit.settings["language"]]["display"]["departures"] + ifoffset
         varinit.scrollsum = renderstring(varinit.text[5], large=True, _cls=bottom)
         varinit.shared["loop_counter"] = -2
@@ -843,17 +934,17 @@ def scroll_mode():
                     if ad: 
                         varinit.scrollsum = renderstring(reformat_data([["1", ad,"***","",""]]), large=True, _cls=bottom)
                         varinit.active_message = True
-                    else: varinit.scrollsum = renderstring(reformat_data(get_departure()), large=True)
-                except: varinit.scrollsum = renderstring(reformat_data(get_departure()), large=True)
+                    else: varinit.scrollsum = renderstring(reformat_data(get_departure(num=varinit.active_station)), large=True)
+                except: varinit.scrollsum = renderstring(reformat_data(get_departure(num=varinit.active_station)), large=True)
             
             elif time.monotonic() > varinit.deviations_timer + (varinit.deviations_delay * 60) \
                 and int(varinit.settings["show_msgs"]) and varinit.shared["nightcount"] < 2 \
-                and varinit.settings["stations"]["1"]["operator"] in ["sl","vt"]:
+                and varinit.settings["stations"][varinit.active_station]["operator"] in ["sl","vt"]:
                 try: varinit.scrollsum = renderstring(reformat_data([["1", get_deviations(),"***","",""]]), large=True, _cls=bottom)
                 except: varinit.scrollsum = renderstring(reformat_data([["1", " ","***","",""]]), large=True, _cls=bottom)
                 varinit.deviations_timer = time.monotonic()
                 varinit.active_message = True
-            else: varinit.scrollsum = renderstring(reformat_data(get_departure()), large=True)
+            else: varinit.scrollsum = renderstring(reformat_data(get_departure(num=varinit.active_station)), large=True)
             rnd = random.randint(0, 10)
             varinit.shared["scroll_timer"] = time.monotonic() + rnd
             print("RND: ", rnd)
@@ -954,7 +1045,7 @@ def list_mode(mini=False, half=False):
         except: pass
         return time.monotonic() - varinit.updatedelay + 2
     
-    # trainlist = reformat_data(get_departure())
+    # trainlist = reformat_data(get_departure(num=varinit.active_station))
     ### DEBUG
     
     _r = 1
@@ -980,8 +1071,10 @@ def list_mode(mini=False, half=False):
         varinit.traindata[1] = apply_clock_row(reformat_data(merge_departures(("1", "2", "3"))))
     else:
         for i in range(_r):
-            print("Fetching: ", i+1)
-            _data = reformat_data(get_departure(num = str(i+1)))
+            # side-by-side shows every slot at once; otherwise follow the cycled station
+            _fnum = str(i+1) if int(varinit.settings["multiple"]) else varinit.active_station
+            print("Fetching: ", _fnum)
+            _data = reformat_data(get_departure(num = _fnum))
             varinit.traindata[i+1] = apply_clock_row(_data, is_clock_station=(i == 0))
             if not half or i+1 == _r: break
         
@@ -1218,9 +1311,9 @@ def list_splash(_settings=False):
         sysprint(extra_space + varinit.text[2], lastrow, _refresh=False)
         sysprint(varinit.text[3]+str(wifi.radio.ipv4_address), lastrow+1, _refresh=False)
     else:
-        if int(varinit.settings["stations"]["1"]["offset"]):
-            sysprint(str(dicts.language[settings["language"]]["display"]["hiding"]) + str(varinit.settings["stations"]["1"]["offset"]) + varinit.settings["mins"], 102, _refresh=False)
-    sysprint(LOGO_CHAR+str(varinit.settings["stations"]["1"]["mystation"]), 100, _refresh=False)
+        if int(varinit.settings["stations"][varinit.active_station]["offset"]):
+            sysprint(str(dicts.language[settings["language"]]["display"]["hiding"]) + str(varinit.settings["stations"][varinit.active_station]["offset"]) + varinit.settings["mins"], 102, _refresh=False)
+    sysprint(LOGO_CHAR+str(varinit.settings["stations"][varinit.active_station]["mystation"]), 100, _refresh=False)
     sysprint(varinit.text[5], 101, _refresh=True)
 
 def update_screen():

@@ -62,6 +62,7 @@ while not varinit.exit:
         if x: 
             ampule.listen(socket)
             check_button()
+        if functions.cycle_due(): functions.cycle_station()
         if int(varinit.settings["listmode"]) and time.monotonic() > varinit.shared["scroll_timer"] + updatedelay: varinit.shared["scroll_timer"] = list_mode()
         elif not int(varinit.settings["listmode"]) and varinit.display.width > 64: 
             varinit.tg2.x -= 1
