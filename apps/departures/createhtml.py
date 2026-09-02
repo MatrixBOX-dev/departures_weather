@@ -3,6 +3,23 @@ from functions import *
 import web
 #from code import exit
 
+def _urldecode(s):
+    # Percent-escapes are UTF-8 bytes, so collect the whole byte string first and
+    # decode once. html_decode only maps Latin-1, so it leaves anything else
+    # (Polish, Czech, Greek, Cyrillic) as literal "%C5%9A" text.
+    s = s.replace("+", " ")
+    b = bytearray()
+    i = 0
+    n = len(s)
+    while i < n:
+        if s[i] == "%" and i + 3 <= n:
+            try:
+                b.append(int(s[i+1:i+3], 16)); i += 3; continue
+            except: pass
+        b.extend(s[i].encode("utf-8")); i += 1
+    try: return bytes(b).decode("utf-8")
+    except: return "".join(chr(x) for x in b)
+
 def timer():
     html = web.timer(varinit.settings["language"], varinit.settings["timer"])
     return html
@@ -261,20 +278,21 @@ def huvudsidan(request):
     html_decode = dicts.html_decode
 
     if "set_timer" in request.params:
-        #print(request.params["set_timer"])
-        _split = request.params["start"].split("to%3D")
-        start = _split[0].replace("%3A", ":")
-        end = _split[1].replace("%3A", ":")
-        #if functions.check_correct_time(start, end): varinit.settings["timer"][request.params["set_timer"]] = [start, end]
-        varinit.settings["timer"][request.params["set_timer"]] = [start, end]
-        
+        # start and end arrive as separate params, still percent-encoded (07%3A00)
+        day = request.params["set_timer"]
+        start = _urldecode(str(request.params.get("start", "")))
+        end = _urldecode(str(request.params.get("end", "")))
+        if day in varinit.settings["timer"] and start and end:
+            varinit.settings["timer"][day] = [start, end]
+            try: functions.savesettings()      # persist, so the timer survives a reboot
+            except: pass
         return (200, {}, "")
     
     elif "cleartimer" in request.params: 
         for i in varinit.settings["timer"]:
             varinit.settings["timer"][i] = ["00:00", "00:00"]
-
-        #varinit.settings["timer"] = dicts.settingstxt["timer"]
+        try: functions.savesettings()
+        except: pass
         print("Timer reset!")
         return (200, {}, mkhtml())
     
@@ -365,9 +383,7 @@ def huvudsidan(request):
             varinit.settings["user"] = varinit.settings["user"].replace(a, html_decode[a])
         return (200, {}, "")
     elif "password" in request.params:
-        varinit.settings["password"] = request.params["password"]
-        for a in html_decode:
-            varinit.settings["password"] = varinit.settings["password"].replace(a, html_decode[a])
+        varinit.settings["password"] = _urldecode(request.params["password"])
         #functions.sysprint(str(dicts.language[varinit.settings["language"]]["display"]["connecting"]),10,cls=topbottom)
         #functions.sysprint(str(varinit.settings["ssid"]),11, _refresh=True, _delay=1)
         return (200, {}, "")
@@ -423,6 +439,36 @@ def huvudsidan(request):
     elif "multiple" in request.params:
         varinit.settings["multiple"] = 1 - varinit.settings["multiple"]
         functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "cycle_screens" in request.params:
+        varinit.settings["cycle_screens"] = 1 - int(varinit.settings.get("cycle_screens", 0))
+        varinit.cycle_timer = 0
+        varinit.active_station = functions.configured_stations()[0]
+        functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "cycle_interval" in request.params:
+        try: varinit.settings["cycle_interval"] = max(3, int(request.params["cycle_interval"]))
+        except: pass
+        return (200, {}, "")
+    elif "switch_hold" in request.params:
+        try: varinit.settings["switch_hold"] = min(15, max(0, int(request.params["switch_hold"])))
+        except: pass
+        return (200, {}, "")
+    elif "weather" in request.params:
+        varinit.settings["weather"] = 1 - int(varinit.settings.get("weather", 0))
+        varinit.wx_timer = 0
+        varinit.cycle_timer = 0
+        return (200, {}, "")
+    elif "weather_lat" in request.params or "weather_lon" in request.params:
+        # Decimal degrees. Comma is the decimal separator across most of the
+        # continent, so accept it and store the dotted form the API needs.
+        for _k, _limit in (("weather_lat", 90), ("weather_lon", 180)):
+            if _k not in request.params: continue
+            _v = _urldecode(str(request.params[_k])).strip().replace(",", ".")
+            try:
+                if abs(float(_v)) <= _limit: varinit.settings[_k] = _v
+            except: pass
+        varinit.wx_timer = 0          # re-fetch for the new location
         return (200, {}, "")
     elif "screen" in request.params:
         varinit.screen_selector = request.params["screen"]
@@ -524,8 +570,7 @@ def huvudsidan(request):
     elif "strip_dest" in request.params:
         try:
             strip_dest = []
-            parts = request.params["strip_dest"]
-            for a in html_decode: parts = parts.replace(a, html_decode[a])
+            parts = _urldecode(request.params["strip_dest"])
             for part in parts.split(","):
                 part = part.strip()
                 if part: strip_dest.append(part)
@@ -537,8 +582,7 @@ def huvudsidan(request):
     elif "dest_abbrev" in request.params:
         try:
             dest_abbrev = []
-            parts = request.params["dest_abbrev"]
-            for a in html_decode: parts = parts.replace(a, html_decode[a])
+            parts = _urldecode(request.params["dest_abbrev"])
             for part in parts.split(","):
                 part = part.strip()
                 if "=" in part:
@@ -553,7 +597,7 @@ def huvudsidan(request):
     elif "show_lines" in request.params:
         try:
             show_lines = []
-            lines = request.params["show_lines"].replace("%20", "")
+            lines = _urldecode(request.params["show_lines"]).replace(" ", "")
             for line in lines.split(","):
                 show_lines.append(line)
             varinit.settings["show_lines"] = show_lines
@@ -568,16 +612,12 @@ def huvudsidan(request):
         return (200, {}, "")
     elif "no_more_departures" in request.params:
         if request.params["no_more_departures"] == "": varinit.settings["no_more_departures"] = dicts.language[settings["language"]]["display"]["no_more_departures"]
-        else: varinit.settings["no_more_departures"] = str(request.params["no_more_departures"])
-        for a in html_decode:
-            varinit.settings["no_more_departures"] = varinit.settings["no_more_departures"].replace(a, html_decode[a])
+        else: varinit.settings["no_more_departures"] = _urldecode(str(request.params["no_more_departures"]))
         varinit.text = functions.load_text()
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "mins" in request.params:
-        varinit.settings["mins"] = str(request.params["mins"])
-        for a in html_decode:
-            varinit.settings["mins"] = varinit.settings["mins"].replace(a, html_decode[a])
+        varinit.settings["mins"] = _urldecode(str(request.params["mins"]))
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "power" in request.params:

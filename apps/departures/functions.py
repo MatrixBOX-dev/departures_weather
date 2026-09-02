@@ -1,4 +1,4 @@
-from __main__ import wifi, pool
+from __main__ import wifi, pool, requests
 import varinit, createhtml, microcontroller, json, ipaddress
 from varinit import *
 import random
@@ -21,6 +21,222 @@ def strlen(_string):
     return sum(fonts[varinit.currentfont][c][0] for c in _string)
 
 LOGO_CHAR = "Ⓜ"
+
+def _cycle_slot_count():
+    # Station slots this panel offers; matches the settings UI's screen buttons.
+    return 2 if varinit.if_long == 128 else 3
+
+def configured_stations():
+    # Ordered station slots that have a real siteid.
+    out = []
+    for i in range(1, _cycle_slot_count() + 1):
+        k = str(i)
+        try:
+            if str(varinit.settings["stations"][k]["siteid"]) not in ("", "0", "00", "000"):
+                out.append(k)
+        except: pass
+    return out or ["1"]
+
+def next_station():
+    # Peek the next configured slot without switching to it.
+    lst = configured_stations()
+    if len(lst) < 2: return varinit.active_station
+    cur = varinit.active_station if varinit.active_station in lst else lst[0]
+    return lst[(lst.index(cur) + 1) % len(lst)]
+
+def cycle_due():
+    # Side-by-side already shows every slot at once, and portrait keeps its own
+    # layout, so the switch screen stays off for both.
+    if varinit.rotated or int(varinit.settings["multiple"]): return False
+    _cyc = int(varinit.settings.get("cycle_screens", 0))
+    _wx = int(varinit.settings.get("weather", 0))
+    if not (_cyc or _wx): return False
+    if time.monotonic() <= varinit.cycle_timer + int(varinit.settings.get("cycle_interval", 15)): return False
+    _advance = _cyc and len(configured_stations()) > 1
+    # List mode has no switch screen, so weather alone would have nothing to draw.
+    if int(varinit.settings["listmode"]): return bool(_advance)
+    return bool(_advance or _wx)
+
+def _blit_icon(bmp, rows, x0, y0, colormap):
+    # colormap: char -> palette index. Chars not in the map stay untouched.
+    W = bmp.width; H = bmp.height
+    for dy in range(len(rows)):
+        row = rows[dy]
+        for dx in range(len(row)):
+            c = colormap.get(row[dx])
+            if c is not None:
+                x = x0 + dx; y = y0 + dy
+                if 0 <= x < W and 0 <= y < H:
+                    bmp[x, y] = c
+
+def _draw_degree(bmp, x, y, c):
+    # hollow ring used as the degree sign, which the font has no glyph for
+    for ox, oy in ((0, 0), (1, 0), (2, 0), (0, 1), (2, 1), (0, 2), (1, 2), (2, 2)):
+        px, py = x + ox, y + oy
+        if 0 <= px < bmp.width and 0 <= py < bmp.height: bmp[px, py] = c
+
+def _draw_paren(bmp, x, y, c, left=True):
+    # 2x6 bracket; the font has "(" but no ")", so draw both for a matching pair
+    pts = ((1, 0), (0, 1), (0, 2), (0, 3), (0, 4), (1, 5)) if left else \
+          ((0, 0), (1, 1), (1, 2), (1, 3), (1, 4), (0, 5))
+    for ox, oy in pts:
+        px, py = x + ox, y + oy
+        if 0 <= px < bmp.width and 0 <= py < bmp.height: bmp[px, py] = c
+
+def _recolor_row2(from_idx, to_idx, x0):
+    for _x in range(x0, min(bottom.width, varinit.if_long)):
+        for _y in range(bottom.height):
+            if bottom[_x, _y] == from_idx: bottom[_x, _y] = to_idx
+
+def _bri(rgb):
+    # Track the brightness setting the way colors() does, so the switch screen
+    # matches the departures text instead of always burning at full value.
+    f = int(varinit.settings.get("brightness", 0)) + 1
+    return (min(255, rgb[0] * f // 5), min(255, rgb[1] * f // 5), min(255, rgb[2] * f // 5))
+
+# weather sprites. chars: o sun disc, r ray, c cloud, b rain, w snow, y bolt
+_WX_SUN = ["..r..r..r..", "...r.r.r...", ".r..ooo..r.", "....ooo....", "...ooooo...",
+           "rr.ooooo.rr", "...ooooo...", "....ooo....", ".r..ooo..r.", "...r.r.r...", "..r..r..r.."]
+_WX_CLOUD = ["...........", "...cccc....", "..cccccc...", ".cccccccc..", "cccccccccc.",
+             ".cccccccc..", "...........", "...........", "...........", "...........", "..........."]
+_WX_PARTLY = ["..r........", ".r.r.......", "..ooo......", ".ooooocccc.", "..ooocccccc",
+              "..cccccccc.", ".cccccccc..", "...........", "...........", "...........", "..........."]
+_WX_RAIN = ["...........", "...cccc....", "..cccccc...", ".cccccccc..", "cccccccccc.",
+            ".cccccccc..", "...........", "..b..b..b..", ".b..b..b...", "b..b..b....", "..........."]
+_WX_SNOW = ["...........", "...cccc....", "..cccccc...", ".cccccccc..", "cccccccccc.",
+            ".cccccccc..", "...........", "..w..w..w..", ".w..w..w...", "..w..w..w..", "..........."]
+_WX_THUNDER = ["...........", "...cccc....", "..cccccc...", ".cccccccc..", "cccccccccc.",
+               ".cccccccc..", "....yy.....", "...yy......", "..yyyyy....", "....yy.....", "...yy......"]
+_WX_COLORMAP = {"o": 4, "r": 9, "c": 6, "b": 8, "w": 2, "y": 1}
+
+def _wx_sprite(code):
+    if code == 0: return _WX_SUN
+    if code in (1, 2): return _WX_PARTLY
+    if code in (3, 45, 48): return _WX_CLOUD
+    if (71 <= code <= 77) or code in (85, 86): return _WX_SNOW
+    if 95 <= code <= 99: return _WX_THUNDER
+    if (51 <= code <= 67) or (80 <= code <= 82): return _WX_RAIN
+    return _WX_CLOUD
+
+def _wx_severity(c):
+    if 95 <= c <= 99: return 5
+    if (71 <= c <= 77) or c in (85, 86): return 4
+    if (51 <= c <= 67) or (80 <= c <= 82): return 3
+    if c in (3, 45, 48): return 2
+    if c in (1, 2): return 1
+    return 0
+
+def get_weather():
+    # Conditions for the next 0-2h and the current temperature, from open-meteo (no
+    # API key). Returns (weather_code, temp_str), cached for 30 minutes and keeping
+    # the last good value on failure.
+    if not int(varinit.settings.get("weather", 0)): return (None, None)
+    if varinit.wx_timer and time.monotonic() - varinit.wx_timer < 1800:
+        return (varinit.wx_code, varinit.wx_temp)
+    varinit.wx_timer = time.monotonic()   # mark the attempt, so a flaky network cannot refetch every switch
+    lat = varinit.settings.get("weather_lat", "59.33")
+    lon = varinit.settings.get("weather_lon", "18.07")
+    try:
+        url = ("https://api.open-meteo.com/v1/forecast?latitude=" + str(lat) +
+               "&longitude=" + str(lon) +
+               "&current=temperature_2m,weather_code"
+               "&hourly=weather_code,temperature_2m&daily=temperature_2m_max"
+               "&forecast_days=1&timezone=auto")
+        resp = requests.get(url, timeout=5); d = json.loads(resp.text); resp.close()
+        cur = d["current"]
+        temp = int(round(cur["temperature_2m"]))
+        # Index the hourly arrays by the API's own local timestamps. Its times are in
+        # the location's timezone while _currenttime is UTC from the HTTP date header,
+        # so using the device clock mis-slices by the offset.
+        htimes = d["hourly"].get("time", [])
+        chour = str(cur.get("time", ""))[:13]        # "YYYY-MM-DDTHH"
+        h = 0
+        for _i, _t in enumerate(htimes):
+            if str(_t)[:13] == chour: h = _i; break
+        else:
+            try: h = int(str(varinit._currenttime).split(":")[0])
+            except: h = 0
+        hcodes = [int(c) for c in d["hourly"]["weather_code"]]
+        near = [int(cur["weather_code"])] + hcodes[h + 1:h + 3]   # now plus the next ~2h
+        varinit.wx_code = max(near, key=_wx_severity)
+        varinit.wx_temp = str(temp)   # number only; the degree sign is drawn as pixels
+        try:
+            dh = int(round(float(d["daily"]["temperature_2m_max"][0])))
+            htemps = [float(t) for t in d["hourly"]["temperature_2m"]]
+            remaining = htemps[h:] if h < len(htemps) else []
+            ahead = bool(remaining) and max(remaining) >= dh - 0.5
+            varinit.wx_peak = dh if (ahead and dh > temp) else None   # hidden once it has passed
+        except: varinit.wx_peak = None
+    except Exception as e:
+        print("Weather failed:", e)
+    return (varinit.wx_code, varinit.wx_temp)
+
+def _render_weather():
+    # Row 2 of the switch screen: conditions icon, current temperature, and today's
+    # high while it is still ahead. Nothing here is text in any language.
+    code, temp = get_weather()
+    if code is None: return False
+    varinit.tg2.x = 0
+    varinit.palette[2] = _bri((235, 235, 245))  # snow
+    varinit.palette[4] = _bri((255, 210, 0))    # sun disc
+    varinit.palette[6] = _bri((150, 150, 165))  # cloud
+    varinit.palette[8] = _bri((120, 200, 255))  # rain, and the temperature text
+    varinit.palette[9] = _bri((255, 140, 0))    # rays, bolt
+    _blit_icon(bottom, _wx_sprite(code), 1, 2, _WX_COLORMAP)
+    w1 = int(renderstring(temp, 0, 0, smallfont=True, _cls=None, target_bmp=bottom, target_offs=5, start_x=15))
+    w2 = int(renderstring("C", 0, 0, smallfont=True, _cls=None, target_bmp=bottom, target_offs=5, start_x=w1 + 5))
+    peak = varinit.wx_peak
+    lpx = rpx = None
+    if peak is not None:
+        lpx = w2 + 4
+        w3 = int(renderstring(str(peak), 0, 0, smallfont=True, _cls=None, target_bmp=bottom, target_offs=5, start_x=lpx + 3))
+        rpx = w3 + 1
+    _recolor_row2(1, 8, 15)
+    _draw_degree(bottom, w1 + 1, 4, 8)
+    if peak is not None:
+        _draw_paren(bottom, lpx, 5, 8, True)
+        _draw_paren(bottom, rpx, 5, 8, False)
+    return True
+
+def _switch_hold(seconds):
+    # Hold the switch screen; a button press cuts it short.
+    t = time.monotonic()
+    while time.monotonic() < t + seconds:
+        try:
+            if not varinit.button.value: return
+        except: pass
+        time.sleep(0.05)
+
+def cycle_station():
+    # Move to the next configured station, naming it on the switch screen while its
+    # departures are fetched, so they are already in memory when the panel clears.
+    varinit.cycle_timer = time.monotonic()
+    # weather alone keeps the current stop; only cycling moves to the next one
+    nxt = next_station() if int(varinit.settings.get("cycle_screens", 0)) else varinit.active_station
+    varinit.active_station = nxt
+    if not int(varinit.settings["listmode"]):
+        try:
+            renderstring(varinit.text[4] + varinit.settings["stations"][nxt]["mystation"][:16],
+                         1, 0, large=True, _cls=top)
+            cls(bottom)
+            if int(varinit.settings.get("weather", 0)): _render_weather()
+            refresh()
+            _hold = int(varinit.settings.get("switch_hold", 3))
+            _t0 = time.monotonic()
+            prefetch_departures(nxt)
+            _switch_hold(max(0, _hold - (time.monotonic() - _t0)))
+            cls(top)
+        except Exception as e:
+            print("Cycle error:", e)
+    varinit.currentfont = 0
+    varinit.active_message = False
+    # Clear the switch screen and reset the scroll the same way switch() does, so the
+    # new stop's departures are drawn straight away instead of the main loop scrolling
+    # the leftover switch screen off to the left first.
+    cls(bottom)
+    varinit.tg2.x = 0
+    reset_scroll()
+    return nxt
 
 def temperature_check():
     if round(microcontroller.cpu.temperature) > varinit.temperature_threshold: 
@@ -132,7 +348,7 @@ def switch(_screen=True, _cls=False, force=False, wifi_screen=False):
             if not force: list_splash(_settings=varinit.shared["startup"])
             if wifi_screen: update_screen()
         else: 
-            renderstring(varinit.text[4]+ varinit.settings["stations"]["1"]["mystation"][:16], 1, 0,large=True, _cls=top)
+            renderstring(varinit.text[4]+ varinit.settings["stations"][varinit.active_station]["mystation"][:16], 1, 0,large=True, _cls=top)
         bounce(direction)
     cls(bottom, _refresh=True)
     reset_scroll()
@@ -170,9 +386,9 @@ def colors():
     except: pass
 
 def get_deviations():
-    country = varinit.settings["stations"]["1"]["country"]
-    operator = varinit.settings["stations"]["1"]["operator"]
-    siteid = varinit.settings["stations"]["1"]["siteid"]
+    country = varinit.settings["stations"][varinit.active_station]["country"]
+    operator = varinit.settings["stations"][varinit.active_station]["operator"]
+    siteid = varinit.settings["stations"][varinit.active_station]["siteid"]
     if not len(varinit.deviations_list):
         data = fetch_data(host="data.t-skylt.se", port=90, args="/get_deviations?country=" + country + "&operator=" + operator + "&station=" + siteid)
         data = json.loads(data)
@@ -509,6 +725,29 @@ def traffic_parser(data, traffic_type, num="1"):
                             dataout.append(dep)
     return dataout
 
+def prefetch_departures(num):
+    # Fill the cache get_departure() already reads from, so the round trip happens
+    # while the switch screen is up instead of after the panel has cleared.
+    try:
+        stn = varinit.settings["stations"][num]
+        if str(stn["siteid"]) in ("", "0", "00", "000") or not stn["operator"]: return False
+    except: return False
+    try:
+        temperature_check()
+        _data = fetch_data(host="data.t-skylt.se", port=90,
+                           args='/get_departures?country=' + stn["country"] +
+                                '&operator=' + stn["operator"] +
+                                "&station=" + str(stn["siteid"]))
+        if not _data: return False
+        varinit.cached_departure_data[num] = json.loads(_data)
+        varinit.use_cached_data = True
+        print("■ Prefetched station", num)
+        return True
+    except Exception as e:
+        # A miss just means get_departure() fetches normally, exactly as before.
+        print("Prefetch failed:", e)
+        return False
+
 def get_departure(num = "1", dataout = [["1", "^ Data error","","",""]]):
     
     if varinit.settings["stations"][num]["siteid"] == "00" or not varinit.settings["stations"][num]["operator"]: return [["1", dicts.language[varinit.settings["language"]]["settings"]["select_operator"], "***","",""]]
@@ -822,10 +1061,10 @@ def scroll_mode():
     elif varinit.shared["loop_counter"] == -3:   
         
         
-        renderstring(varinit.text[4]+ varinit.settings["stations"]["1"]["mystation"][:16], 1, 0, large=True, _cls=top)
+        renderstring(varinit.text[4]+ varinit.settings["stations"][varinit.active_station]["mystation"][:16], 1, 0, large=True, _cls=top)
         if varinit.settings["direction"] == 1: direction = varinit.text[10]
         elif varinit.settings["direction"] == 2: direction = varinit.text[11]
-        ifoffset = " + " + str(varinit.settings["stations"]["1"]["offset"]) + varinit.settings["mins"] if int(varinit.settings["stations"]["1"]["offset"]) else ""
+        ifoffset = " + " + str(varinit.settings["stations"][varinit.active_station]["offset"]) + varinit.settings["mins"] if int(varinit.settings["stations"][varinit.active_station]["offset"]) else ""
         varinit.text[5] = direction + "   >   " + str(varinit.settings["maxdest"]) + dicts.language[varinit.settings["language"]]["display"]["departures"] + ifoffset
         varinit.scrollsum = renderstring(varinit.text[5], large=True, _cls=bottom)
         varinit.shared["loop_counter"] = -2
@@ -843,17 +1082,17 @@ def scroll_mode():
                     if ad: 
                         varinit.scrollsum = renderstring(reformat_data([["1", ad,"***","",""]]), large=True, _cls=bottom)
                         varinit.active_message = True
-                    else: varinit.scrollsum = renderstring(reformat_data(get_departure()), large=True)
-                except: varinit.scrollsum = renderstring(reformat_data(get_departure()), large=True)
+                    else: varinit.scrollsum = renderstring(reformat_data(get_departure(num=varinit.active_station)), large=True)
+                except: varinit.scrollsum = renderstring(reformat_data(get_departure(num=varinit.active_station)), large=True)
             
             elif time.monotonic() > varinit.deviations_timer + (varinit.deviations_delay * 60) \
                 and int(varinit.settings["show_msgs"]) and varinit.shared["nightcount"] < 2 \
-                and varinit.settings["stations"]["1"]["operator"] in ["sl","vt"]:
+                and varinit.settings["stations"][varinit.active_station]["operator"] in ["sl","vt"]:
                 try: varinit.scrollsum = renderstring(reformat_data([["1", get_deviations(),"***","",""]]), large=True, _cls=bottom)
                 except: varinit.scrollsum = renderstring(reformat_data([["1", " ","***","",""]]), large=True, _cls=bottom)
                 varinit.deviations_timer = time.monotonic()
                 varinit.active_message = True
-            else: varinit.scrollsum = renderstring(reformat_data(get_departure()), large=True)
+            else: varinit.scrollsum = renderstring(reformat_data(get_departure(num=varinit.active_station)), large=True)
             rnd = random.randint(0, 10)
             varinit.shared["scroll_timer"] = time.monotonic() + rnd
             print("RND: ", rnd)
@@ -954,7 +1193,7 @@ def list_mode(mini=False, half=False):
         except: pass
         return time.monotonic() - varinit.updatedelay + 2
     
-    # trainlist = reformat_data(get_departure())
+    # trainlist = reformat_data(get_departure(num=varinit.active_station))
     ### DEBUG
     
     _r = 1
@@ -980,8 +1219,10 @@ def list_mode(mini=False, half=False):
         varinit.traindata[1] = apply_clock_row(reformat_data(merge_departures(("1", "2", "3"))))
     else:
         for i in range(_r):
-            print("Fetching: ", i+1)
-            _data = reformat_data(get_departure(num = str(i+1)))
+            # side-by-side shows every slot at once; otherwise follow the cycled station
+            _fnum = str(i+1) if int(varinit.settings["multiple"]) else varinit.active_station
+            print("Fetching: ", _fnum)
+            _data = reformat_data(get_departure(num = _fnum))
             varinit.traindata[i+1] = apply_clock_row(_data, is_clock_station=(i == 0))
             if not half or i+1 == _r: break
         
@@ -1218,9 +1459,9 @@ def list_splash(_settings=False):
         sysprint(extra_space + varinit.text[2], lastrow, _refresh=False)
         sysprint(varinit.text[3]+str(wifi.radio.ipv4_address), lastrow+1, _refresh=False)
     else:
-        if int(varinit.settings["stations"]["1"]["offset"]):
-            sysprint(str(dicts.language[settings["language"]]["display"]["hiding"]) + str(varinit.settings["stations"]["1"]["offset"]) + varinit.settings["mins"], 102, _refresh=False)
-    sysprint(LOGO_CHAR+str(varinit.settings["stations"]["1"]["mystation"]), 100, _refresh=False)
+        if int(varinit.settings["stations"][varinit.active_station]["offset"]):
+            sysprint(str(dicts.language[settings["language"]]["display"]["hiding"]) + str(varinit.settings["stations"][varinit.active_station]["offset"]) + varinit.settings["mins"], 102, _refresh=False)
+    sysprint(LOGO_CHAR+str(varinit.settings["stations"][varinit.active_station]["mystation"]), 100, _refresh=False)
     sysprint(varinit.text[5], 101, _refresh=True)
 
 def update_screen():
