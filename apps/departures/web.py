@@ -195,7 +195,7 @@ function setColor(v,el){fetch('/?color='+v);el.parentNode.querySelectorAll('.col
 document.querySelectorAll('[data-u],[data-p]').forEach(function(el){
 el.addEventListener(el.dataset.e||'click',function(ev){
 var u=el.dataset.u;
-if(!u){var v=ev.target.value.replace(/#/g,'%23');if(el.dataset.enc)v=encodeURIComponent(v);u='/?'+el.dataset.p+'='+v;}
+if(!u){var v=ev.target.value;if(el.dataset.enc)v=encodeURIComponent(v);else v=v.replace(/#/g,'%23');u='/?'+el.dataset.p+'='+v;}
 fetch(u,{method:'GET'});
 });});
 </script>
