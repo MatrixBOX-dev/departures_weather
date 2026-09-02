@@ -589,7 +589,7 @@ def timer(_language, timer):
                  '<div class="col"><input type="time" id="' + did + 'E" class="form-control" value="' + timer[day][1] + '"></div>'
                  '</div>'
                  '<script>(function(){var s=document.getElementById("' + did + 'S"),e=document.getElementById("' + did + 'E");'
-                 'function send(){if(s.value&&e.value)fetch("/?set_timer=' + day + '&start="+encodeURIComponent(s.value+"to="+e.value),{method:"GET"})}'
+                 'function send(){if(s.value&&e.value)fetch("/?set_timer=' + day + '&start="+encodeURIComponent(s.value)+"&end="+encodeURIComponent(e.value),{method:"GET"})}'
                  's.addEventListener("change",send);e.addEventListener("change",send);})()</script>')
     body = ('<div class="card"><div class="section-title">' + T["timer_title"] + '</div>' + rows
             + '<button type="button" class="btn btn-full btn-ghost" onclick="location.href=\'/\'">' + T["return"] + '</button>'

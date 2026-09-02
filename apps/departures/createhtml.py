@@ -261,20 +261,21 @@ def huvudsidan(request):
     html_decode = dicts.html_decode
 
     if "set_timer" in request.params:
-        #print(request.params["set_timer"])
-        _split = request.params["start"].split("to%3D")
-        start = _split[0].replace("%3A", ":")
-        end = _split[1].replace("%3A", ":")
-        #if functions.check_correct_time(start, end): varinit.settings["timer"][request.params["set_timer"]] = [start, end]
-        varinit.settings["timer"][request.params["set_timer"]] = [start, end]
-        
+        # start and end arrive as separate params, still percent-encoded (07%3A00)
+        day = request.params["set_timer"]
+        start = str(request.params.get("start", "")).replace("%3A", ":")
+        end = str(request.params.get("end", "")).replace("%3A", ":")
+        if day in varinit.settings["timer"] and start and end:
+            varinit.settings["timer"][day] = [start, end]
+            try: functions.savesettings()      # persist, so the timer survives a reboot
+            except: pass
         return (200, {}, "")
     
     elif "cleartimer" in request.params: 
         for i in varinit.settings["timer"]:
             varinit.settings["timer"][i] = ["00:00", "00:00"]
-
-        #varinit.settings["timer"] = dicts.settingstxt["timer"]
+        try: functions.savesettings()
+        except: pass
         print("Timer reset!")
         return (200, {}, mkhtml())
     
