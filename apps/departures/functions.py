@@ -1,4 +1,4 @@
-from __main__ import wifi, pool
+from __main__ import wifi, pool, requests
 import varinit, createhtml, microcontroller, json, ipaddress
 from varinit import *
 import random
@@ -46,11 +46,157 @@ def next_station():
 
 def cycle_due():
     # Side-by-side already shows every slot at once, and portrait keeps its own
-    # layout, so cycling stays off for both.
-    if not int(varinit.settings.get("cycle_screens", 0)) or varinit.rotated: return False
-    if int(varinit.settings["multiple"]): return False
+    # layout, so the switch screen stays off for both.
+    if varinit.rotated or int(varinit.settings["multiple"]): return False
+    _cyc = int(varinit.settings.get("cycle_screens", 0))
+    _wx = int(varinit.settings.get("weather", 0))
+    if not (_cyc or _wx): return False
     if time.monotonic() <= varinit.cycle_timer + int(varinit.settings.get("cycle_interval", 15)): return False
-    return len(configured_stations()) > 1
+    _advance = _cyc and len(configured_stations()) > 1
+    # List mode has no switch screen, so weather alone would have nothing to draw.
+    if int(varinit.settings["listmode"]): return bool(_advance)
+    return bool(_advance or _wx)
+
+def _blit_icon(bmp, rows, x0, y0, colormap):
+    # colormap: char -> palette index. Chars not in the map stay untouched.
+    W = bmp.width; H = bmp.height
+    for dy in range(len(rows)):
+        row = rows[dy]
+        for dx in range(len(row)):
+            c = colormap.get(row[dx])
+            if c is not None:
+                x = x0 + dx; y = y0 + dy
+                if 0 <= x < W and 0 <= y < H:
+                    bmp[x, y] = c
+
+def _draw_degree(bmp, x, y, c):
+    # hollow ring used as the degree sign, which the font has no glyph for
+    for ox, oy in ((0, 0), (1, 0), (2, 0), (0, 1), (2, 1), (0, 2), (1, 2), (2, 2)):
+        px, py = x + ox, y + oy
+        if 0 <= px < bmp.width and 0 <= py < bmp.height: bmp[px, py] = c
+
+def _draw_paren(bmp, x, y, c, left=True):
+    # 2x6 bracket; the font has "(" but no ")", so draw both for a matching pair
+    pts = ((1, 0), (0, 1), (0, 2), (0, 3), (0, 4), (1, 5)) if left else \
+          ((0, 0), (1, 1), (1, 2), (1, 3), (1, 4), (0, 5))
+    for ox, oy in pts:
+        px, py = x + ox, y + oy
+        if 0 <= px < bmp.width and 0 <= py < bmp.height: bmp[px, py] = c
+
+def _recolor_row2(from_idx, to_idx, x0):
+    for _x in range(x0, min(bottom.width, varinit.if_long)):
+        for _y in range(bottom.height):
+            if bottom[_x, _y] == from_idx: bottom[_x, _y] = to_idx
+
+def _bri(rgb):
+    # Track the brightness setting the way colors() does, so the switch screen
+    # matches the departures text instead of always burning at full value.
+    f = int(varinit.settings.get("brightness", 0)) + 1
+    return (min(255, rgb[0] * f // 5), min(255, rgb[1] * f // 5), min(255, rgb[2] * f // 5))
+
+# weather sprites. chars: o sun disc, r ray, c cloud, b rain, w snow, y bolt
+_WX_SUN = ["..r..r..r..", "...r.r.r...", ".r..ooo..r.", "....ooo....", "...ooooo...",
+           "rr.ooooo.rr", "...ooooo...", "....ooo....", ".r..ooo..r.", "...r.r.r...", "..r..r..r.."]
+_WX_CLOUD = ["...........", "...cccc....", "..cccccc...", ".cccccccc..", "cccccccccc.",
+             ".cccccccc..", "...........", "...........", "...........", "...........", "..........."]
+_WX_PARTLY = ["..r........", ".r.r.......", "..ooo......", ".ooooocccc.", "..ooocccccc",
+              "..cccccccc.", ".cccccccc..", "...........", "...........", "...........", "..........."]
+_WX_RAIN = ["...........", "...cccc....", "..cccccc...", ".cccccccc..", "cccccccccc.",
+            ".cccccccc..", "...........", "..b..b..b..", ".b..b..b...", "b..b..b....", "..........."]
+_WX_SNOW = ["...........", "...cccc....", "..cccccc...", ".cccccccc..", "cccccccccc.",
+            ".cccccccc..", "...........", "..w..w..w..", ".w..w..w...", "..w..w..w..", "..........."]
+_WX_THUNDER = ["...........", "...cccc....", "..cccccc...", ".cccccccc..", "cccccccccc.",
+               ".cccccccc..", "....yy.....", "...yy......", "..yyyyy....", "....yy.....", "...yy......"]
+_WX_COLORMAP = {"o": 4, "r": 9, "c": 6, "b": 8, "w": 2, "y": 1}
+
+def _wx_sprite(code):
+    if code == 0: return _WX_SUN
+    if code in (1, 2): return _WX_PARTLY
+    if code in (3, 45, 48): return _WX_CLOUD
+    if (71 <= code <= 77) or code in (85, 86): return _WX_SNOW
+    if 95 <= code <= 99: return _WX_THUNDER
+    if (51 <= code <= 67) or (80 <= code <= 82): return _WX_RAIN
+    return _WX_CLOUD
+
+def _wx_severity(c):
+    if 95 <= c <= 99: return 5
+    if (71 <= c <= 77) or c in (85, 86): return 4
+    if (51 <= c <= 67) or (80 <= c <= 82): return 3
+    if c in (3, 45, 48): return 2
+    if c in (1, 2): return 1
+    return 0
+
+def get_weather():
+    # Conditions for the next 0-2h and the current temperature, from open-meteo (no
+    # API key). Returns (weather_code, temp_str), cached for 30 minutes and keeping
+    # the last good value on failure.
+    if not int(varinit.settings.get("weather", 0)): return (None, None)
+    if varinit.wx_timer and time.monotonic() - varinit.wx_timer < 1800:
+        return (varinit.wx_code, varinit.wx_temp)
+    varinit.wx_timer = time.monotonic()   # mark the attempt, so a flaky network cannot refetch every switch
+    lat = varinit.settings.get("weather_lat", "59.33")
+    lon = varinit.settings.get("weather_lon", "18.07")
+    try:
+        url = ("https://api.open-meteo.com/v1/forecast?latitude=" + str(lat) +
+               "&longitude=" + str(lon) +
+               "&current=temperature_2m,weather_code"
+               "&hourly=weather_code,temperature_2m&daily=temperature_2m_max"
+               "&forecast_days=1&timezone=auto")
+        resp = requests.get(url, timeout=5); d = json.loads(resp.text); resp.close()
+        cur = d["current"]
+        temp = int(round(cur["temperature_2m"]))
+        # Index the hourly arrays by the API's own local timestamps. Its times are in
+        # the location's timezone while _currenttime is UTC from the HTTP date header,
+        # so using the device clock mis-slices by the offset.
+        htimes = d["hourly"].get("time", [])
+        chour = str(cur.get("time", ""))[:13]        # "YYYY-MM-DDTHH"
+        h = 0
+        for _i, _t in enumerate(htimes):
+            if str(_t)[:13] == chour: h = _i; break
+        else:
+            try: h = int(str(varinit._currenttime).split(":")[0])
+            except: h = 0
+        hcodes = [int(c) for c in d["hourly"]["weather_code"]]
+        near = [int(cur["weather_code"])] + hcodes[h + 1:h + 3]   # now plus the next ~2h
+        varinit.wx_code = max(near, key=_wx_severity)
+        varinit.wx_temp = str(temp)   # number only; the degree sign is drawn as pixels
+        try:
+            dh = int(round(float(d["daily"]["temperature_2m_max"][0])))
+            htemps = [float(t) for t in d["hourly"]["temperature_2m"]]
+            remaining = htemps[h:] if h < len(htemps) else []
+            ahead = bool(remaining) and max(remaining) >= dh - 0.5
+            varinit.wx_peak = dh if (ahead and dh > temp) else None   # hidden once it has passed
+        except: varinit.wx_peak = None
+    except Exception as e:
+        print("Weather failed:", e)
+    return (varinit.wx_code, varinit.wx_temp)
+
+def _render_weather():
+    # Row 2 of the switch screen: conditions icon, current temperature, and today's
+    # high while it is still ahead. Nothing here is text in any language.
+    code, temp = get_weather()
+    if code is None: return False
+    varinit.tg2.x = 0
+    varinit.palette[2] = _bri((235, 235, 245))  # snow
+    varinit.palette[4] = _bri((255, 210, 0))    # sun disc
+    varinit.palette[6] = _bri((150, 150, 165))  # cloud
+    varinit.palette[8] = _bri((120, 200, 255))  # rain, and the temperature text
+    varinit.palette[9] = _bri((255, 140, 0))    # rays, bolt
+    _blit_icon(bottom, _wx_sprite(code), 1, 2, _WX_COLORMAP)
+    w1 = int(renderstring(temp, 0, 0, smallfont=True, _cls=None, target_bmp=bottom, target_offs=5, start_x=15))
+    w2 = int(renderstring("C", 0, 0, smallfont=True, _cls=None, target_bmp=bottom, target_offs=5, start_x=w1 + 5))
+    peak = varinit.wx_peak
+    lpx = rpx = None
+    if peak is not None:
+        lpx = w2 + 4
+        w3 = int(renderstring(str(peak), 0, 0, smallfont=True, _cls=None, target_bmp=bottom, target_offs=5, start_x=lpx + 3))
+        rpx = w3 + 1
+    _recolor_row2(1, 8, 15)
+    _draw_degree(bottom, w1 + 1, 4, 8)
+    if peak is not None:
+        _draw_paren(bottom, lpx, 5, 8, True)
+        _draw_paren(bottom, rpx, 5, 8, False)
+    return True
 
 def _switch_hold(seconds):
     # Hold the switch screen; a button press cuts it short.
@@ -65,13 +211,15 @@ def cycle_station():
     # Move to the next configured station, naming it on the switch screen while its
     # departures are fetched, so they are already in memory when the panel clears.
     varinit.cycle_timer = time.monotonic()
-    nxt = next_station()
+    # weather alone keeps the current stop; only cycling moves to the next one
+    nxt = next_station() if int(varinit.settings.get("cycle_screens", 0)) else varinit.active_station
     varinit.active_station = nxt
     if not int(varinit.settings["listmode"]):
         try:
             renderstring(varinit.text[4] + varinit.settings["stations"][nxt]["mystation"][:16],
                          1, 0, large=True, _cls=top)
             cls(bottom)
+            if int(varinit.settings.get("weather", 0)): _render_weather()
             refresh()
             _hold = int(varinit.settings.get("switch_hold", 3))
             _t0 = time.monotonic()

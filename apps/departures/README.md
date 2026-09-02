@@ -68,3 +68,25 @@ once; the toggle is hidden while that is on. Not available in portrait.
 
 The incoming stop's departures are fetched while its name is on screen, so
 they are already in memory when the switch screen clears.
+
+## Weather on the switch screen
+
+Settings > **Weather on switch screen**. Draws the conditions for the next
+couple of hours, the current temperature, and today's high while it is still
+ahead, on the second row of the switch screen. Data comes from open-meteo; no
+API key is needed.
+
+The row is a pictogram, a number and a bracketed number, with no words in it, so
+it reads the same whatever language the sign is set to.
+
+| Setting | Values | Notes |
+|---|---|---|
+| Weather on switch screen | on/off | master toggle |
+| Latitude, longitude | decimal degrees | south and west negative; comma or dot as the
+decimal separator. Defaults to central Stockholm |
+
+Works on its own: with a single stop configured and **Cycle stations** off, the
+switch screen still appears on the interval and shows the weather, without
+changing stop.
+
+Polled every 30 minutes, keeping the last good reading if a fetch fails.

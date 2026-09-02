@@ -33,6 +33,10 @@ def _opt(val, cur, label):
     return "<option value='" + str(val) + "'" + s + ">" + label + "</option>"
 
 
+def _attr(v):
+    # escape a saved value so it can be pre-filled into an HTML attribute
+    return str(v).replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
+
 def _chk(name, val, url, label):
     c = " checked" if int(val) else ""
     return ('<div class="toggle-row"><label for="' + name + '" class="toggle-label">' + label + '</label>'
@@ -189,8 +193,10 @@ function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.queryS
 function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.borderColor='#ff6060';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
 function doScan(){fetch('/checknet').then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('ssid');sel.innerHTML=h;sel.disabled=false;document.getElementById('password').disabled=false;document.getElementById('connect_wifi').disabled=false;}).catch(function(){});}
 
-var mc=document.getElementById('multiple');if(mc)mc.addEventListener('change',function(){var sb=document.getElementById('screenbtns');if(sb)sb.style.visibility=mc.checked?'visible':'hidden';var sc=document.getElementById('stationcount');if(sc)sc.style.display=mc.checked?'':'none';})var cr=document.getElementById('cyclerow');if(cr)cr.style.display=mc.checked?'none':'';var cf=document.getElementById('cyclecfg');if(cf&&mc.checked)cf.style.display='none';});
-var cy=document.getElementById('cycle_screens');if(cy)cy.addEventListener('change',function(){var cf=document.getElementById('cyclecfg');if(cf)cf.style.display=cy.checked?'':'none';});
+var mc=document.getElementById('multiple');if(mc)mc.addEventListener('change',function(){var sb=document.getElementById('screenbtns');if(sb)sb.style.visibility=mc.checked?'visible':'hidden';var sc=document.getElementById('stationcount');if(sc)sc.style.display=mc.checked?'':'none';})var _sh=function(id,v){var e=document.getElementById(id);if(e)e.style.display=v?'':'none';};['cyclerow','wxrow'].forEach(function(id){_sh(id,!mc.checked);});if(mc.checked){_sh('cyclecfg',0);_sh('wxcfg',0);}});
+var cy=document.getElementById('cycle_screens'),wx=document.getElementById('weather');function _cfg(){var e=document.getElementById('cyclecfg');if(e)e.style.display=((cy&&cy.checked)||(wx&&wx.checked))?'':'none';}
+if(cy)cy.addEventListener('change',_cfg);
+if(wx)wx.addEventListener('change',function(){var e=document.getElementById('wxcfg');if(e)e.style.display=wx.checked?'':'none';_cfg();});
 function setFont(v,el){fetch('/?font_size='+v);var bs=el.parentNode.querySelectorAll('button');bs.forEach(function(b){b.classList.remove('on');});el.classList.add('on');}
 function setColor(v,el){fetch('/?color='+v);el.parentNode.querySelectorAll('.color-swatch-btn').forEach(function(b){b.classList.remove('active');});el.classList.add('active');}
 document.querySelectorAll('[data-u],[data-p]').forEach(function(el){
@@ -425,13 +431,30 @@ def html():
     # station cycling (one station at a time, switching on a timer). Mutually
     # exclusive with side-by-side, which already shows every slot at once.
     _cyc = int(s.get("cycle_screens", 0))
-    _cyc_hide = "display:none;" if int(s["multiple"]) else ""
+    _wx = int(s.get("weather", 0))
+    _sw_hide = "display:none;" if int(s["multiple"]) else ""
+    _cfg_hide = "" if (_cyc or _wx) and not int(s["multiple"]) else "display:none;"
     mult_html += (
-        '<div id="cyclerow" style="' + _cyc_hide + '">'
+        '<div id="cyclerow" style="' + _sw_hide + '">'
         + _chk("cycle_screens", _cyc, "/?cycle_screens=1", "Cycle stations")
         + '</div>'
-        '<div id="cyclecfg" style="' + ("" if _cyc and not int(s["multiple"]) else "display:none;") + '">'
-        '<div class="toggle-row"><label for="cycle_interval" class="toggle-label">Seconds per station</label>'
+        # weather rides on the same switch screen, and works on its own with one stop
+        '<div id="wxrow" style="' + _sw_hide + '">'
+        + _chk("weather", _wx, "/?weather=1", "Weather on switch screen")
+        + '</div>'
+        '<div id="wxcfg" style="' + ("" if _wx and not int(s["multiple"]) else "display:none;") + '">'
+        '<div class="toggle-row"><label for="weather_lat" class="toggle-label">Latitude, longitude</label>'
+        '<span><input type="text" id="weather_lat" class="form-control" style="width:70px;display:inline"'
+        ' inputmode="decimal" placeholder="59.33" value="'
+        + _attr(s.get("weather_lat", "")) + '" data-p="weather_lat" data-e="blur">'
+        ' <input type="text" id="weather_lon" class="form-control" style="width:70px;display:inline"'
+        ' inputmode="decimal" placeholder="18.07" value="'
+        + _attr(s.get("weather_lon", "")) + '" data-p="weather_lon" data-e="blur"></span></div>'
+        '<div style="font-size:.72rem;color:var(--muted);margin:-2px 0 6px">'
+        'Decimal degrees, south and west negative. Stockholm is 59.33, 18.07.</div>'
+        '</div>'
+        '<div id="cyclecfg" style="' + _cfg_hide + '">'
+        '<div class="toggle-row"><label for="cycle_interval" class="toggle-label">Seconds per screen</label>'
         '<input type="text" id="cycle_interval" class="form-control" style="width:60px;display:inline" value="'
         + str(s.get("cycle_interval", 15)) + '" data-p="cycle_interval" data-e="blur"></div>'
         '<div class="toggle-row"><label for="switch_hold" class="toggle-label">Switch screen seconds</label>'

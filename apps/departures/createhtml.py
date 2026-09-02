@@ -454,6 +454,22 @@ def huvudsidan(request):
         try: varinit.settings["switch_hold"] = min(15, max(0, int(request.params["switch_hold"])))
         except: pass
         return (200, {}, "")
+    elif "weather" in request.params:
+        varinit.settings["weather"] = 1 - int(varinit.settings.get("weather", 0))
+        varinit.wx_timer = 0
+        varinit.cycle_timer = 0
+        return (200, {}, "")
+    elif "weather_lat" in request.params or "weather_lon" in request.params:
+        # Decimal degrees. Comma is the decimal separator across most of the
+        # continent, so accept it and store the dotted form the API needs.
+        for _k, _limit in (("weather_lat", 90), ("weather_lon", 180)):
+            if _k not in request.params: continue
+            _v = _urldecode(str(request.params[_k])).strip().replace(",", ".")
+            try:
+                if abs(float(_v)) <= _limit: varinit.settings[_k] = _v
+            except: pass
+        varinit.wx_timer = 0          # re-fetch for the new location
+        return (200, {}, "")
     elif "screen" in request.params:
         varinit.screen_selector = request.params["screen"]
         functions.switch(_screen=False)
